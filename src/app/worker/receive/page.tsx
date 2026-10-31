@@ -11,7 +11,7 @@ import { Stepper } from "@/components/ui/Stepper";
 import { Badge } from "@/components/ui/Badge";
 import { useData, type Product } from "@/lib/store";
 import { useCurrentWorker, uploadDeliveryNote, DELIVERY_NOTES_BUCKET } from "@/lib/worker-store";
-import { parseDeliveryNote } from "@/lib/worker/ocr";
+import { parseDeliveryNote, type ScannedLine } from "@/lib/worker/ocr";
 import { Done, Foot, Picker, Row, StepHead, Summary, type PickItem, type SummaryLine } from "@/components/worker";
 
 type Step = "start" | "lines" | "summary" | "done";
@@ -51,6 +51,8 @@ export default function ReceivePage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [scan, setScan] = useState<"idle" | "ok" | "empty" | "error">("idle");
+  /** Work lines on the note (delivery, cutting…): noted, never received into stock. */
+  const [services, setServices] = useState<ScannedLine[]>([]);
   const [lines, setLines] = useState<Line[]>([newLine()]);
   const [pickProductFor, setPickProductFor] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -83,8 +85,10 @@ export default function ReceivePage() {
     setScan("idle");
     try {
       const scanned = await parseDeliveryNote(file);
+      const goods = scanned.filter((l) => l.kind !== "service");
+      setServices(scanned.filter((l) => l.kind === "service"));
       if (scanned.length) {
-        setLines(scanned.map((s) => newLine({ externalName: s.externalName, qty: Math.max(1, Math.round(s.qty)), scanned: true })));
+        setLines(goods.length ? goods.map((s) => newLine({ externalName: s.externalName, qty: Math.max(1, Math.round(s.qty)), scanned: true })) : [newLine()]);
         setScan("ok");
       } else setScan("empty");
     } catch {
@@ -125,7 +129,9 @@ export default function ReceivePage() {
     if (!worker || !supplier) return;
     setBusy(true);
     setError(null);
-    const note = storagePath ? `תעודה צולמה · ${DELIVERY_NOTES_BUCKET}/${storagePath}` : photo ? "תעודה צולמה (ההעלאה נכשלה)" : null;
+    const servicesNote = services.length ? `עבודות: ${services.map((sv) => `${sv.externalName}${sv.qty !== 1 ? ` ×${sv.qty}` : ""}`).join(", ")}` : "";
+    const photoNote = storagePath ? `תעודה צולמה · ${DELIVERY_NOTES_BUCKET}/${storagePath}` : photo ? "תעודה צולמה (ההעלאה נכשלה)" : "";
+    const note = [photoNote, servicesNote].filter(Boolean).join(" · ") || null;
     const received: SummaryLine[] = [];
     const pending: SummaryLine[] = [];
     try {
@@ -197,7 +203,7 @@ export default function ReceivePage() {
             </div>
           ) : null}
           {scanning ? <Notice tone="neutral" title="קורא את התעודה…" /> : null}
-          {!scanning && scan === "ok" ? <Notice tone="success" title={`זוהו ${lines.length} שורות`}>בשלב הבא תאשר כל שורה.</Notice> : null}
+          {!scanning && scan === "ok" ? <Notice tone="success" title={`זוהו ${lines.filter((l) => l.externalName).length} שורות${services.length ? ` ו־${services.length} עבודות` : ""}`}>בשלב הבא תאשר כל שורה.</Notice> : null}
           {!scanning && scan === "empty" ? <Notice tone="neutral" title="לא זוהו שורות בתעודה">אפשר להקליד את השורות ידנית בשלב הבא.</Notice> : null}
           {!scanning && scan === "error" ? <Notice tone="warning" title="קריאת התעודה לא עבדה">התמונה תישמר; הקלד את השורות ידנית.</Notice> : null}
           <Row title="הקלדה ידנית" sub="אכתוב את השורות בעצמי" selected={mode === "manual"} icon="edit" onClick={() => setMode("manual")} />
@@ -290,6 +296,14 @@ export default function ReceivePage() {
           })}
           <Row quiet icon="plus" title="הוסף שורה" onClick={() => setLines((ls) => [...ls, newLine()])} />
         </div>
+        {services.length ? (
+          <section className="wk-stack">
+            <span className="sa-label">עבודות בתעודה <span className="sa-faint" style={{ fontWeight: 400 }}>לא נקלט למלאי</span></span>
+            {services.map((sv, i) => (
+              <Row key={`${sv.externalName}-${i}`} icon="edit" title={sv.externalName} sub={sv.qty !== 1 ? `×${sv.qty}` : "נרשם בהערה בלבד"} end={<span className="sa-faint" style={{ fontSize: 13 }}>זה מוצר?</span>} onClick={() => { setServices((list) => list.filter((_, j) => j !== i)); setLines((ls) => [...ls.filter((x) => x.externalName.trim()), newLine({ externalName: sv.externalName, qty: Math.max(1, Math.round(sv.qty)), scanned: true })]); }} />
+            ))}
+          </section>
+        ) : null}
         <Foot>
           <Button variant="primary" size="touch" iconEnd="arrow-left" disabled={!canContinue} onClick={() => setStep("summary")}>
             לסיכום

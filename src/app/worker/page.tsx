@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Notice } from "@/components/ui/Notice";
 import { Spinner } from "@/components/ui/Spinner";
@@ -67,9 +66,6 @@ export default function WorkerHome() {
       {state.products.length === 0 ? (
         <Notice tone="neutral" title="אין עדיין מוצרים במלאי">מנהל יוסיף מוצרים ב־Super Admin.</Notice>
       ) : null}
-      <div style={{ marginTop: "auto" }}>
-        <Button variant="ghost" size="touch" onClick={() => router.push("/")}>מעבר ל־Super Admin</Button>
-      </div>
     </main>
   );
 }

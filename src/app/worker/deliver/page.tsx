@@ -10,7 +10,7 @@ import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { Stepper } from "@/components/ui/Stepper";
 import { useData, normalizeName } from "@/lib/store";
 import { useCurrentWorker, useRecentCustomers, uploadDeliveryReceipt, DELIVERY_NOTES_BUCKET } from "@/lib/worker-store";
-import { parseDeliveryNote } from "@/lib/worker/ocr";
+import { parseDeliveryNote, type ScannedLine } from "@/lib/worker/ocr";
 import { fmtQty } from "@/lib/format";
 import { Done, Foot, Picker, Row, StepHead, Summary, type PickItem, type SummaryLine } from "@/components/worker";
 
@@ -41,6 +41,8 @@ export default function DeliverPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [scan, setScan] = useState<"idle" | "ok" | "empty" | "error">("idle");
+  /** Work lines read from the receipt (cutting, delivery…): recorded in the note, never deducted. */
+  const [services, setServices] = useState<ScannedLine[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SummaryLine[] | null>(null);
@@ -69,11 +71,13 @@ export default function DeliverPage() {
     setScan("idle");
     try {
       const scanned = await parseDeliveryNote(file);
+      const goods = scanned.filter((l) => l.kind !== "service");
+      setServices(scanned.filter((l) => l.kind === "service"));
       if (scanned.length) {
-        setLines(scanned.map((l) => {
+        setLines(goods.length ? goods.map((l) => {
           const p = matchProduct(l.externalName, l.externalSku);
           return newLine({ productId: p?.id ?? null, qty: Math.max(1, Math.round(l.qty)), hint: p ? undefined : l.externalName, scanned: true });
-        }));
+        }) : [newLine()]);
         setScan("ok");
       } else setScan("empty");
     } catch {
@@ -98,6 +102,19 @@ export default function DeliverPage() {
   );
 
   const patch = (id: string, p: Partial<Line>) => setLines((ls) => ls.map((l) => (l.id === id ? { ...l, ...p } : l)));
+  /** The worker says a scanned line is work, not goods: move it to the services list. */
+  const toService = (l: Line) => {
+    setServices((sv) => [...sv, { externalName: l.hint ?? product(l.productId)?.name ?? "", qty: l.qty, kind: "service" }]);
+    setLines((ls) => (ls.length > 1 ? ls.filter((x) => x.id !== l.id) : [newLine()]));
+  };
+  /** The worker says a service line is actually goods: move it back as a line to map. */
+  const toLine = (i: number) => {
+    const sv = services[i];
+    const p = matchProduct(sv.externalName, sv.externalSku);
+    setServices((list) => list.filter((_, j) => j !== i));
+    setLines((ls) => [...ls.filter((x) => x.productId || x.hint), newLine({ productId: p?.id ?? null, qty: Math.max(1, Math.round(sv.qty)), hint: p ? undefined : sv.externalName, scanned: true })]);
+  };
+  const servicesNote = services.length ? ` · עבודות: ${services.map((sv) => `${sv.externalName}${sv.qty !== 1 ? ` ×${sv.qty}` : ""}`).join(", ")}` : "";
   const removeLine = (id: string) => setLines((ls) => (ls.length > 1 ? ls.filter((l) => l.id !== id) : ls));
   const valid = lines.filter((l) => l.productId && l.qty > 0);
 
@@ -111,7 +128,7 @@ export default function DeliverPage() {
     try {
       for (const l of valid) {
         const p = product(l.productId)!;
-        await issue({ productId: p.id, qty: l.qty, workerId: worker.id, reference: reference.trim() || null, note: `ללקוח: ${name}${photoNote}` });
+        await issue({ productId: p.id, qty: l.qty, workerId: worker.id, reference: reference.trim() || null, note: `ללקוח: ${name}${photoNote}${servicesNote}` });
         out.push({ key: l.id, title: p.name, sub: p.sku, qty: l.qty, unit: p.unit });
       }
       remember(name);
@@ -157,11 +174,11 @@ export default function DeliverPage() {
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <div className="wk-preview"><img src={photo.url} alt="תצלום הקבלה" /></div>
-              <Row quiet title="הסר תמונה" onClick={() => { setPhoto(null); setScan("idle"); }} />
+              <Row quiet title="הסר תמונה" onClick={() => { setPhoto(null); setScan("idle"); setServices([]); }} />
             </>
           ) : null}
           {scanning ? <Notice tone="neutral" title="קורא את הקבלה…" /> : null}
-          {!scanning && scan === "ok" ? <Notice tone="success" title={`זוהו ${lines.length} פריטים`}>בשלב הבא תאשר כל פריט.</Notice> : null}
+          {!scanning && scan === "ok" ? <Notice tone="success" title={`זוהו ${lines.filter((l) => l.productId || l.hint).length} פריטים${services.length ? ` ו־${services.length} עבודות` : ""}`}>בשלב הבא תאשר כל פריט.</Notice> : null}
           {!scanning && scan === "empty" ? <Notice tone="neutral" title="לא זוהו פריטים בקבלה">אפשר לבחור את הפריטים ידנית בשלב הבא.</Notice> : null}
           {!scanning && scan === "error" ? <Notice tone="warning" title="קריאת הקבלה לא עבדה">התמונה תישמר; בחר את הפריטים ידנית.</Notice> : null}
         </section>
@@ -207,11 +224,20 @@ export default function DeliverPage() {
                   <span className="wk-qty-label">כמות{p?.unit ? ` (${p.unit})` : ""}</span>
                   <QuantityStepper value={l.qty} min={1} onChange={(n) => patch(l.id, { qty: n })} />
                 </div>
+                {l.scanned && !p ? <Row quiet title="זו עבודה, לא מוצר" onClick={() => toService(l)} /> : null}
               </div>
             );
           })}
           <Row quiet icon="plus" title="הוסף פריט" onClick={() => setLines((ls) => [...ls, newLine()])} />
         </div>
+        {services.length ? (
+          <section className="wk-stack">
+            <span className="sa-label">עבודות מהקבלה <span className="sa-faint" style={{ fontWeight: 400 }}>לא יורד מהמלאי</span></span>
+            {services.map((sv, i) => (
+              <Row key={`${sv.externalName}-${i}`} icon="edit" title={sv.externalName} sub={sv.qty !== 1 ? `×${sv.qty}` : "נרשם בהערה בלבד"} end={<span className="sa-faint" style={{ fontSize: 13 }}>זה מוצר?</span>} onClick={() => toLine(i)} />
+            ))}
+          </section>
+        ) : null}
         <Foot>
           <Button variant="primary" size="touch" iconEnd="arrow-left" disabled={valid.length === 0} onClick={() => setStep("summary")}>לסיכום</Button>
         </Foot>
@@ -236,6 +262,7 @@ export default function DeliverPage() {
           { k: "עובד", v: worker.name },
           ...(reference.trim() ? [{ k: "מסמך", v: <span className="sa-num">{reference.trim()}</span> }] : []),
           { k: "קבלה", v: photo ? (storagePath ? "צולמה והועלתה" : uploadError ? "צולמה, לא הועלתה" : "מעלה…") : "ללא" },
+          ...(services.length ? [{ k: "עבודות", v: services.map((sv) => `${sv.externalName}${sv.qty !== 1 ? ` ×${sv.qty}` : ""}`).join(", ") }] : []),
         ]}
         lines={summaryLines}
       />

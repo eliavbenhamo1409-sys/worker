@@ -13,6 +13,8 @@ export type ScannedLine = {
   /** Supplier's SKU, when printed on the note. */
   externalSku?: string | null;
   qty: number;
+  /** "service" = work such as cutting or delivery; it never touches stock. */
+  kind: "product" | "service";
 };
 
 const MAX_EDGE = 1600;

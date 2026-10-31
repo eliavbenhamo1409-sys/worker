@@ -19,6 +19,7 @@ const PROMPT = `זו תמונה של תעודת משלוח (חשבונית/תע�
 - externalName: שם הפריט בדיוק כפי שכתוב בתעודה (בעברית או באנגלית, בלי לתרגם או לתקן)
 - externalSku: מק"ט הספק אם מופיע בשורה, אחרת null
 - qty: הכמות כמספר (לא מחיר, לא סה"כ)
+- kind: "product" אם זו סחורה פיזית (לוחות, פלטות, ברגים, עץ, ציפויים וכו'), או "service" אם זו עבודה/שירות ולא פריט פיזי (חיתוך, חיתוך לפלטה, קנטים/הדבקת קנט, קידוח, הרכבה, הובלה, משלוח, התקנה, שעות עבודה, פחת, דמי טיפול).
 התעלם מכותרות, מחירים, מע"מ וסיכומים. אם אין שורות ברורות החזר רשימה ריקה.`;
 
 const SCHEMA = {
@@ -32,15 +33,16 @@ const SCHEMA = {
           externalName: { type: "STRING" },
           externalSku: { type: "STRING", nullable: true },
           qty: { type: "NUMBER" },
+          kind: { type: "STRING", enum: ["product", "service"] },
         },
-        required: ["externalName", "qty"],
+        required: ["externalName", "qty", "kind"],
       },
     },
   },
   required: ["lines"],
 } as const;
 
-type RawLine = { externalName?: unknown; externalSku?: unknown; qty?: unknown };
+type RawLine = { externalName?: unknown; externalSku?: unknown; qty?: unknown; kind?: unknown };
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -84,6 +86,7 @@ export async function POST(req: NextRequest) {
       externalName: typeof l.externalName === "string" ? l.externalName.trim() : "",
       externalSku: typeof l.externalSku === "string" && l.externalSku.trim() ? l.externalSku.trim() : null,
       qty: typeof l.qty === "number" && Number.isFinite(l.qty) ? l.qty : Number(l.qty),
+      kind: l.kind === "service" ? ("service" as const) : ("product" as const),
     }))
     .filter((l) => l.externalName && Number.isFinite(l.qty) && l.qty > 0);
 
