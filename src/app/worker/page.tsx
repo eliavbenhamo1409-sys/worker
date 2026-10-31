@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Notice } from "@/components/ui/Notice";
 import { Spinner } from "@/components/ui/Spinner";
+import { ThemeSettingsButton } from "@/components/ui/ThemeSettings";
 import { useData } from "@/lib/store";
 import { useCurrentWorker } from "@/lib/worker-store";
 import { BigAction, Row } from "@/components/worker";
@@ -32,7 +33,7 @@ export default function WorkerHome() {
   if (workers.length === 0) {
     return (
       <main className="wk-page">
-        <EmptyState icon="user" title="עדיין אין עובדים במערכת" hint="מנהל יוסיף עובדים ב־Super Admin ואז תוכלו לבחור שם כאן." />
+        <EmptyState icon="user" title="עדיין אין עובדים במערכת" hint="מנהל יוסיף עובדים בלוח הניהול ואז תוכלו לבחור שם כאן." />
       </main>
     );
   }
@@ -64,8 +65,11 @@ export default function WorkerHome() {
         <BigAction title="דיווח על תקלה" sub="משהו נשבר, חסר או פגום" icon="alert-triangle" tone="danger" onClick={() => router.push("/worker/fault")} />
       </div>
       {state.products.length === 0 ? (
-        <Notice tone="neutral" title="אין עדיין מוצרים במלאי">מנהל יוסיף מוצרים ב־Super Admin.</Notice>
+        <Notice tone="neutral" title="אין עדיין מוצרים במלאי">מנהל יוסיף מוצרים בלוח הניהול.</Notice>
       ) : null}
+      <div style={{ marginTop: "auto" }}>
+        <ThemeSettingsButton variant="touch" />
+      </div>
     </main>
   );
 }

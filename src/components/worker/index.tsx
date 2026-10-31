@@ -60,8 +60,10 @@ export function Row({ title, sub, end, selected, quiet, onClick, icon }: { title
 /* ── Full-screen searchable picker ───────────────────────────── */
 export type PickItem = { id: string; title: string; sub?: string; keywords?: string; end?: ReactNode };
 
-export function Picker({ title, items, onPick, onClose, placeholder = "חיפוש…", extra, emptyTitle = "אין פריטים", emptyHint }: {
+export function Picker({ title, context, items, onPick, onClose, placeholder = "חיפוש…", extra, emptyTitle = "אין פריטים", emptyHint }: {
   title: string;
+  /** What the worker is looking for, e.g. the wording on the receipt. */
+  context?: string;
   items: PickItem[];
   onPick: (id: string) => void;
   onClose: () => void;
@@ -90,6 +92,7 @@ export function Picker({ title, items, onPick, onClose, placeholder = "חיפו�
     <div className="wk-sheet" role="dialog" aria-modal="true" aria-label={title}>
       <div className="wk-sheet-inner">
         <StepHead title={title} onBack={onClose} />
+        {context ? <p className="wk-pick-context">כתוב בקבלה: <strong>{context}</strong></p> : null}
         <Input ref={inputRef} size="touch" icon="search" placeholder={placeholder} value={q} onChange={(e) => setQ(e.target.value)} aria-label={placeholder} autoComplete="off" />
         <div className="wk-sheet-list">
           {filtered.length === 0 && !extra ? (

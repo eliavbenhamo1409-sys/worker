@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Reactive data layer for Super Admin.
+ * Reactive data layer for the inventory app.
  *
  * - Loads every table once (factory-scale data), keeps it in React state.
  * - Subscribes to Supabase Realtime (postgres_changes) so every client stays
@@ -25,6 +25,7 @@ import {
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/lib/database.types";
+import { fmtQty } from "@/lib/format";
 
 export type Product = Tables<"products">;
 export type Movement = Tables<"movements">;
@@ -32,9 +33,10 @@ export type Supplier = Tables<"suppliers">;
 export type SupplierItem = Tables<"supplier_items">;
 export type Fault = Tables<"faults">;
 export type Worker = Tables<"workers">;
+export type ItemRequest = Tables<"item_requests">;
 export type MovementType = Movement["type"];
 
-type TableName = "products" | "movements" | "suppliers" | "supplier_items" | "faults" | "workers";
+type TableName = "products" | "movements" | "suppliers" | "supplier_items" | "faults" | "workers" | "item_requests";
 
 type Row = { id: string };
 
@@ -55,6 +57,7 @@ type State = {
   supplierItems: SupplierItem[];
   faults: Fault[];
   workers: Worker[];
+  itemRequests: ItemRequest[]; // most recent first
   status: "loading" | "ready" | "error";
   error: string | null;
   live: boolean; // realtime channel subscribed
@@ -78,10 +81,11 @@ const KEY: Record<TableName, keyof State> = {
   supplier_items: "supplierItems",
   faults: "faults",
   workers: "workers",
+  item_requests: "itemRequests",
 };
 
 function sortFor(table: TableName, rows: Row[]): Row[] {
-  if (table === "movements" || table === "faults") {
+  if (table === "movements" || table === "faults" || table === "item_requests") {
     return [...rows].sort((a, b) =>
       String((b as Movement).created_at).localeCompare(String((a as Movement).created_at)),
     );
@@ -141,6 +145,7 @@ const initial: State = {
   supplierItems: [],
   faults: [],
   workers: [],
+  itemRequests: [],
   status: "loading",
   error: null,
   live: false,
@@ -149,7 +154,7 @@ const initial: State = {
 
 /* ─────────────────────────── derived types ─────────────────────────── */
 
-export type AttentionKind = "out" | "low" | "fault" | "mapping";
+export type AttentionKind = "out" | "low" | "fault" | "mapping" | "request";
 export type AttentionEntry = {
   id: string;
   kind: AttentionKind;
@@ -163,6 +168,7 @@ export type AttentionEntry = {
   faultId?: string;
   photoPath?: string;
   supplierItemId?: string;
+  requestId?: string;
 };
 
 export type DayPoint = { day: string; label: string; in: number; out: number; total: number };
@@ -177,6 +183,7 @@ export type Stats = {
   outToday: number;
   openFaults: number;
   pendingMappings: number;
+  pendingRequests: number;
   exceptions: number;
 };
 
@@ -205,6 +212,18 @@ export type NameResolution =
 export function normalizeName(t: string | null | undefined): string {
   return (t ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 }
+/** A receipt line the worker could not settle alone; it waits for the manager. */
+export type ItemRequestInput = {
+  kind: ItemRequest["kind"];
+  externalName: string;
+  proposedName?: string | null;
+  qty: number;
+  customer?: string | null;
+  reference?: string | null;
+  note?: string | null;
+  workerNote?: string | null;
+  workerId?: string | null;
+};
 export type FaultInput = {
   productId?: string | null;
   description: string;
@@ -248,6 +267,10 @@ type Api = {
   approveSupplierItem: (id: string) => Promise<void>;
   unapproveSupplierItem: (id: string) => Promise<void>;
   deleteSupplierItem: (id: string) => Promise<void>;
+  createItemRequest: (input: ItemRequestInput) => Promise<ItemRequest>;
+  /** Link the request to a product and issue its quantity, atomically in the DB. */
+  approveItemRequest: (id: string, productId: string) => Promise<void>;
+  rejectItemRequest: (id: string) => Promise<void>;
   /** Full movement history of one product (not capped). */
   fetchProductHistory: (productId: string) => Promise<Movement[]>;
 };
@@ -255,6 +278,11 @@ type Api = {
 const Ctx = createContext<Api | null>(null);
 
 const tempId = () => `tmp_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+
+/** True while a row only exists optimistically (its DB id has not come back yet). */
+export function isTempId(id: string): boolean {
+  return id.startsWith("tmp_");
+}
 
 function dayKey(iso: string): string {
   const d = new Date(iso);
@@ -272,15 +300,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [state]);
 
   const reload = useCallback(async () => {
-    const [products, movements, suppliers, supplierItems, faults, workers] = await Promise.all([
+    const [products, movements, suppliers, supplierItems, faults, workers, itemRequests] = await Promise.all([
       sb.from("products").select("*").order("name"),
       sb.from("movements").select("*").order("created_at", { ascending: false }).limit(RECENT_MOVEMENTS),
       sb.from("suppliers").select("*").order("name"),
       sb.from("supplier_items").select("*").order("created_at", { ascending: false }),
       sb.from("faults").select("*").order("created_at", { ascending: false }),
       sb.from("workers").select("*").order("name"),
+      sb.from("item_requests").select("*").order("created_at", { ascending: false }),
     ]);
-    const err = [products, movements, suppliers, supplierItems, faults, workers].find((r) => r.error)?.error;
+    const err = [products, movements, suppliers, supplierItems, faults, workers, itemRequests].find((r) => r.error)?.error;
     if (err) {
       dispatch({ type: "error", error: err.message });
       return;
@@ -294,6 +323,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         supplierItems: supplierItems.data ?? [],
         faults: faults.data ?? [],
         workers: workers.data ?? [],
+        itemRequests: itemRequests.data ?? [],
       },
     });
   }, [sb]);
@@ -303,7 +333,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     reload().catch((e) => !cancelled && dispatch({ type: "error", error: String(e?.message ?? e) }));
 
-    const tables: TableName[] = ["products", "movements", "suppliers", "supplier_items", "faults", "workers"];
+    const tables: TableName[] = ["products", "movements", "suppliers", "supplier_items", "faults", "workers", "item_requests"];
     let channel = sb.channel("super-admin-db");
     for (const table of tables) {
       channel = channel.on(
@@ -384,9 +414,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
         at: i.created_at, supplierItemId: i.id, productId: i.product_id ?? undefined,
       });
     }
+    for (const r of state.itemRequests) {
+      if (r.status !== "pending") continue;
+      const w = r.worker_id ? workerMap.get(r.worker_id) : undefined;
+      const isNew = r.kind === "new_product";
+      out.push({
+        id: `request:${r.id}`, kind: "request", severity: "warning", label: isNew ? "מוצר חדש" : "לא זוהה",
+        title: `${r.proposed_name?.trim() || r.external_name} × ${fmtQty(r.qty)}`,
+        meta: [r.customer ? `ללקוח ${r.customer}` : "", w ? `נשלח ע"י ${w.name}` : ""].filter(Boolean),
+        at: r.created_at, requestId: r.id,
+      });
+    }
     const rank = { danger: 0, warning: 1 } as const;
     return out.sort((a, b) => rank[a.severity] - rank[b.severity] || b.at.localeCompare(a.at));
-  }, [state.products, state.faults, state.supplierItems, productMap, workerMap, supplierMap]);
+  }, [state.products, state.faults, state.supplierItems, state.itemRequests, productMap, workerMap, supplierMap]);
 
   const stats = useMemo<Stats>(() => {
     const today = dayKey(new Date().toISOString());
@@ -406,11 +447,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const out = state.products.filter((p) => p.qty <= 0).length;
     const openFaults = state.faults.filter((f) => f.status === "open").length;
     const pendingMappings = state.supplierItems.filter((i) => i.status === "pending").length;
+    const pendingRequests = state.itemRequests.filter((r) => r.status === "pending").length;
     return {
       products: state.products.length, low, out, movementsToday, movementsYesterday, inToday, outToday,
-      openFaults, pendingMappings, exceptions: out + low + openFaults + pendingMappings,
+      openFaults, pendingMappings, pendingRequests, exceptions: out + low + openFaults + pendingMappings + pendingRequests,
     };
-  }, [state.products, state.movements, state.faults, state.supplierItems]);
+  }, [state.products, state.movements, state.faults, state.supplierItems, state.itemRequests]);
 
   const weekly = useMemo<DayPoint[]>(() => {
     const days: DayPoint[] = [];
@@ -579,7 +621,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return (await insert("products", input, optimistic)) as Product;
     },
     updateProduct: (id, patch) => update("products", id, patch),
-    deleteProduct: (id) => remove("products", id),
+    deleteProduct: async (id) => {
+      await remove("products", id);
+      // Mirror the DB's `on delete set null` so orphaned supplier names show up for re-mapping right away.
+      for (const item of stateRef.current.supplierItems) {
+        if (item.product_id === id) {
+          const orphan: SupplierItem = { ...item, product_id: null };
+          dispatch({ type: "upsert", table: "supplier_items", row: orphan });
+        }
+      }
+    },
 
     createSupplier: async (input) => {
       const optimistic: Supplier = {
@@ -628,6 +679,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
         .slice(0, limit);
     },
     deleteSupplierItem: (id) => remove("supplier_items", id),
+
+    createItemRequest: async (input) => {
+      const row = {
+        kind: input.kind, external_name: input.externalName, proposed_name: input.proposedName ?? null, qty: input.qty,
+        customer: input.customer ?? null, reference: input.reference || null, note: input.note || null,
+        worker_note: input.workerNote || null, worker_id: input.workerId ?? null,
+      };
+      const optimistic: ItemRequest = {
+        ...row, id: tempId(), status: "pending", normalized_name: normalizeName(input.externalName),
+        product_id: null, movement_id: null, created_at: new Date().toISOString(), resolved_at: null,
+      };
+      return (await insert("item_requests", row, optimistic)) as ItemRequest;
+    },
+    approveItemRequest: async (id, productId) => {
+      const { error } = await sb.rpc("approve_item_request", { request_id: id, target_product_id: productId });
+      if (error) throw new Error(error.message);
+      await reload();
+    },
+    rejectItemRequest: (id) => update("item_requests", id, { status: "rejected", resolved_at: new Date().toISOString() }),
 
     fetchProductHistory: async (productId) => {
       const { data, error } = await sb.from("movements").select("*").eq("product_id", productId).order("created_at", { ascending: false }).limit(500);

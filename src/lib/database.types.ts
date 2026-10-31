@@ -187,6 +187,63 @@ export type Database = {
           },
         ]
       }
+      item_requests: {
+        Row: {
+          created_at: string
+          customer: string | null
+          external_name: string
+          id: string
+          kind: Database["public"]["Enums"]["item_request_kind"]
+          movement_id: string | null
+          normalized_name: string | null
+          note: string | null
+          product_id: string | null
+          proposed_name: string | null
+          qty: number
+          reference: string | null
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["item_request_status"]
+          worker_id: string | null
+          worker_note: string | null
+        }
+        Insert: {
+          created_at?: string
+          customer?: string | null
+          external_name: string
+          id?: string
+          kind: Database["public"]["Enums"]["item_request_kind"]
+          movement_id?: string | null
+          normalized_name?: string | null
+          note?: string | null
+          product_id?: string | null
+          proposed_name?: string | null
+          qty: number
+          reference?: string | null
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["item_request_status"]
+          worker_id?: string | null
+          worker_note?: string | null
+        }
+        Update: {
+          created_at?: string
+          customer?: string | null
+          external_name?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["item_request_kind"]
+          movement_id?: string | null
+          normalized_name?: string | null
+          note?: string | null
+          product_id?: string | null
+          proposed_name?: string | null
+          qty?: number
+          reference?: string | null
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["item_request_status"]
+          worker_id?: string | null
+          worker_note?: string | null
+        }
+        Relationships: []
+      }
       supplier_items: {
         Row: {
           approved_at: string | null
@@ -306,11 +363,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_item_request: {
+        Args: { request_id: string; target_product_id: string }
+        Returns: Database["public"]["Tables"]["item_requests"]["Row"]
+      }
       ean13_check: { Args: { digits12: string }; Returns: string }
       normalize_name: { Args: { t: string }; Returns: string }
     }
     Enums: {
       fault_status: "open" | "resolved"
+      item_request_kind: "unknown" | "new_product"
+      item_request_status: "pending" | "approved" | "rejected"
       mapping_status: "approved" | "pending"
       movement_type: "in" | "out" | "fault" | "adjust"
     }
@@ -424,6 +487,8 @@ export const Constants = {
   public: {
     Enums: {
       fault_status: ["open", "resolved"],
+      item_request_kind: ["unknown", "new_product"],
+      item_request_status: ["pending", "approved", "rejected"],
       mapping_status: ["approved", "pending"],
       movement_type: ["in", "out", "fault", "adjust"],
     },

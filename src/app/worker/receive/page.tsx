@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/Badge";
 import { useData, type Product } from "@/lib/store";
 import { useCurrentWorker, uploadDeliveryNote, DELIVERY_NOTES_BUCKET } from "@/lib/worker-store";
 import { parseDeliveryNote, type ScannedLine } from "@/lib/worker/ocr";
+import { buildDictionary, matchLine, suggestProducts, type Candidate } from "@/lib/worker/match";
 import { Done, Foot, Picker, Row, StepHead, Summary, type PickItem, type SummaryLine } from "@/components/worker";
 
 type Step = "start" | "lines" | "summary" | "done";
@@ -19,6 +20,10 @@ type Step = "start" | "lines" | "summary" | "done";
 type Line = {
   id: string;
   externalName: string;
+  /** Supplier's SKU, when the note printed one. */
+  sku?: string | null;
+  /** What the model thinks this line is, for the worker to confirm. */
+  suggestedId?: string;
   productId: string | null;
   /** The worker chose "לא יודע": keep for the manager, don't receive. */
   unknown: boolean;
@@ -48,7 +53,6 @@ export default function ReceivePage() {
   const [mode, setMode] = useState<"photo" | "manual" | null>(null);
   const [photo, setPhoto] = useState<{ file: File; url: string } | null>(null);
   const [storagePath, setStoragePath] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [scan, setScan] = useState<"idle" | "ok" | "empty" | "error">("idle");
   /** Work lines on the note (delivery, cutting…): noted, never received into stock. */
@@ -73,11 +77,12 @@ export default function ReceivePage() {
     [state.products],
   );
 
+  const dictionary = useMemo(() => buildDictionary(state.products, state.supplierItems, state.itemRequests), [state.products, state.supplierItems, state.itemRequests]);
+
   /* ── photo ── */
   const onPhoto = useCallback(async (file: File | undefined) => {
     if (!file) return;
     setMode("photo");
-    setUploadError(null);
     setStoragePath(null);
     setPhoto((prev) => { if (prev) URL.revokeObjectURL(prev.url); return { file, url: URL.createObjectURL(file) }; });
     // The OCR hook: when a model reads the note, its lines land here for the worker to confirm.
@@ -88,7 +93,9 @@ export default function ReceivePage() {
       const goods = scanned.filter((l) => l.kind !== "service");
       setServices(scanned.filter((l) => l.kind === "service"));
       if (scanned.length) {
-        setLines(goods.length ? goods.map((s) => newLine({ externalName: s.externalName, qty: Math.max(1, Math.round(s.qty)), scanned: true })) : [newLine()]);
+        const unmatched = goods.filter((s) => matchLine(dictionary, s.externalName, s.externalSku).status === "none").map((s) => s.externalName);
+        const suggested = await suggestProducts(unmatched, state.products, dictionary);
+        setLines(goods.length ? goods.map((s) => newLine({ externalName: s.externalName, sku: s.externalSku, suggestedId: suggested.get(s.externalName), qty: Math.max(1, Math.round(s.qty)), scanned: true })) : [newLine()]);
         setScan("ok");
       } else setScan("empty");
     } catch {
@@ -96,14 +103,14 @@ export default function ReceivePage() {
     } finally {
       setScanning(false);
     }
-  }, []);
+  }, [dictionary, state.products]);
 
   const startUpload = useCallback(async () => {
     if (!photo || !supplierId || storagePath) return;
     try {
       setStoragePath(await uploadDeliveryNote(photo.file, supplierId));
-    } catch (e) {
-      setUploadError(e instanceof Error ? e.message : String(e));
+    } catch {
+      // the movement note records that the photo didn't upload; the worker carries on
     }
   }, [photo, supplierId, storagePath]);
 
@@ -113,10 +120,19 @@ export default function ReceivePage() {
 
   /** For a typed name: auto-map from the dictionary unless the worker chose a product by hand. */
   const resolution = (l: Line) => resolveSupplierName(supplierId, l.externalName);
+  const dictionaryMatch = (l: Line) => matchLine(dictionary, l.externalName, l.sku, supplierId);
   const effectiveProduct = (l: Line): Product | undefined => {
     if (l.productId) return product(l.productId);
     const r = resolution(l);
-    return r.product ?? undefined;
+    if (r.product) return r.product;
+    const m = dictionaryMatch(l);
+    return m.status === "sure" ? product(m.productId) : undefined;
+  };
+  /** Products the line resembles, for the worker to confirm with one tap. */
+  const candidatesFor = (l: Line): Candidate[] => {
+    const m = dictionaryMatch(l);
+    if (m.status === "near") return m.candidates;
+    return l.suggestedId ? [{ productId: l.suggestedId, alias: null }] : [];
   };
 
   const validLines = lines.filter((l) => l.externalName.trim() && l.qty > 0);
@@ -184,7 +200,7 @@ export default function ReceivePage() {
         <section className="wk-stack">
           <span className="sa-label">ספק</span>
           {state.suppliers.length === 0 ? (
-            <Notice tone="neutral" title="אין ספקים במערכת">מנהל יוסיף ספקים ב־Super Admin.</Notice>
+            <Notice tone="neutral" title="אין ספקים במערכת">מנהל יוסיף ספקים בלוח הניהול.</Notice>
           ) : (
             <Row title={supplier ? supplier.name : "בחר ספק"} sub={supplier ? undefined : "רשימה עם חיפוש"} selected={!!supplier} end={<Icon name="chevron-left" size={18} />} onClick={() => setPickSupplier(true)} />
           )}
@@ -227,9 +243,6 @@ export default function ReceivePage() {
       <main className="wk-page">
         <StepHead title={supplier?.name ?? "שורות"} step={2} total={3} onBack={back} />
         <Stepper steps={STEPS} current="lines" />
-        {uploadError ? (
-          <Notice tone="warning" title="התמונה לא הועלתה" onDismiss={() => setUploadError(null)}>הקליטה תישמר בלי התמונה. {uploadError}</Notice>
-        ) : null}
         {lines.some((l) => l.scanned) ? (
           <Notice tone="accent" title="השורות נקראו מהתעודה">בדוק כל שורה ואשר את הכמויות.</Notice>
         ) : null}
@@ -238,7 +251,8 @@ export default function ReceivePage() {
             const r = resolution(l);
             const prod = effectiveProduct(l);
             const name = l.externalName.trim();
-            const suggestions = name && !prod && !l.unknown ? suggestSupplierNames(supplierId, name, 5).filter((s) => s.external_name !== name) : [];
+            const candidates = name && !prod && !l.unknown ? candidatesFor(l) : [];
+            const suggestions = name && !prod && !l.unknown && !candidates.length ? suggestSupplierNames(supplierId, name, 5).filter((s) => s.external_name !== name) : [];
             return (
               <div key={l.id} className="wk-line">
                 <div className="wk-line-head">
@@ -253,7 +267,7 @@ export default function ReceivePage() {
                   placeholder="לדוגמה: לוח אורן 2×4"
                   value={l.externalName}
                   autoComplete="off"
-                  onChange={(e) => patch(l.id, { externalName: e.target.value, productId: null, unknown: false })}
+                  onChange={(e) => patch(l.id, { externalName: e.target.value, sku: null, suggestedId: undefined, productId: null, unknown: false })}
                 />
                 {suggestions.length ? (
                   <div className="wk-suggest" role="listbox" aria-label="הצעות מהמילון">
@@ -274,6 +288,14 @@ export default function ReceivePage() {
                   </div>
                 ) : l.unknown ? (
                   <div className="wk-status is-muted"><Icon name="info" /><span>יישמר לבדיקת מנהל, בלי קליטה למלאי</span></div>
+                ) : candidates.length ? (
+                  <div className="wk-choices">
+                    <p className="wk-ask">זה המוצר?</p>
+                    {candidates.map((c) => {
+                      const match = product(c.productId);
+                      return match ? <Row key={c.productId} icon="check" title={match.name} sub={c.alias && c.alias !== match.name ? `במילון: ${c.alias}` : match.sku} onClick={() => patch(l.id, { productId: match.id, unknown: false })} /> : null;
+                    })}
+                  </div>
                 ) : (
                   <div className="wk-status is-warning"><Icon name="alert-circle" /><span>שם חדש — יישמר לבדיקה</span></div>
                 )}
@@ -339,7 +361,7 @@ export default function ReceivePage() {
           { k: "ספק", v: supplier?.name },
           { k: "עובד", v: worker.name },
           ...(reference.trim() ? [{ k: "תעודה", v: <span className="sa-num">{reference.trim()}</span> }] : []),
-          { k: "תמונה", v: photo ? (storagePath ? "צולמה והועלתה" : uploadError ? "צולמה, לא הועלתה" : "מעלה…") : "ללא" },
+          { k: "תמונה", v: photo ? "צולמה" : "ללא" },
         ]}
         lines={summaryLines}
       />
