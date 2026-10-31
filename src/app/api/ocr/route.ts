@@ -11,7 +11,7 @@ import type { NextRequest } from "next/server";
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-const DEFAULT_MODEL = "gemini-2.5-flash-lite";
+const DEFAULT_MODEL = "gemini-3.5-flash-lite";
 const MAX_BYTES = 8 * 1024 * 1024;
 
 const PROMPT = `זו תמונה של תעודת משלוח (חשבונית/תעודת ספק) ממפעל עץ בישראל.
