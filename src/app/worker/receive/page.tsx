@@ -50,6 +50,7 @@ export default function ReceivePage() {
   const [storagePath, setStoragePath] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [scan, setScan] = useState<"idle" | "ok" | "empty" | "error">("idle");
   const [lines, setLines] = useState<Line[]>([newLine()]);
   const [pickProductFor, setPickProductFor] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -79,9 +80,15 @@ export default function ReceivePage() {
     setPhoto((prev) => { if (prev) URL.revokeObjectURL(prev.url); return { file, url: URL.createObjectURL(file) }; });
     // The OCR hook: when a model reads the note, its lines land here for the worker to confirm.
     setScanning(true);
+    setScan("idle");
     try {
       const scanned = await parseDeliveryNote(file);
-      if (scanned.length) setLines(scanned.map((s) => newLine({ externalName: s.externalName, qty: Math.max(1, Math.round(s.qty)), scanned: true })));
+      if (scanned.length) {
+        setLines(scanned.map((s) => newLine({ externalName: s.externalName, qty: Math.max(1, Math.round(s.qty)), scanned: true })));
+        setScan("ok");
+      } else setScan("empty");
+    } catch {
+      setScan("error");
     } finally {
       setScanning(false);
     }
@@ -190,6 +197,9 @@ export default function ReceivePage() {
             </div>
           ) : null}
           {scanning ? <Notice tone="neutral" title="קורא את התעודה…" /> : null}
+          {!scanning && scan === "ok" ? <Notice tone="success" title={`זוהו ${lines.length} שורות`}>בשלב הבא תאשר כל שורה.</Notice> : null}
+          {!scanning && scan === "empty" ? <Notice tone="neutral" title="לא זוהו שורות בתעודה">אפשר להקליד את השורות ידנית בשלב הבא.</Notice> : null}
+          {!scanning && scan === "error" ? <Notice tone="warning" title="קריאת התעודה לא עבדה">התמונה תישמר; הקלד את השורות ידנית.</Notice> : null}
           <Row title="הקלדה ידנית" sub="אכתוב את השורות בעצמי" selected={mode === "manual"} icon="edit" onClick={() => setMode("manual")} />
           <Input size="touch" label="מספר תעודה" optional mono inputMode="numeric" placeholder="123456" value={reference} onChange={(e) => setReference(e.target.value)} />
         </section>
