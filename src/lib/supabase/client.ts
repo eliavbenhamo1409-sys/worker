@@ -14,12 +14,13 @@ let client: SupabaseClient<Database> | null = null;
 export function supabase(): SupabaseClient<Database> {
   if (client) return client;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // Supabase's dashboard names the publishable key either way; accept both.
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) {
     if (typeof window === "undefined") {
       return createClient<Database>("https://placeholder.supabase.co", "placeholder-anon-key");
     }
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY");
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
   }
   client = createClient<Database>(url, key, {
     realtime: { params: { eventsPerSecond: 10 } },
