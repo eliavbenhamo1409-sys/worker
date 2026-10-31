@@ -108,6 +108,18 @@ export async function uploadDeliveryNote(file: File, supplierId: string): Promis
   return path;
 }
 
+/** Upload a photographed customer receipt (deliver flow); same bucket, under deliveries/. */
+export async function uploadDeliveryReceipt(file: File, workerId: string): Promise<string> {
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+  const path = `deliveries/${workerId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await supabase().storage.from(DELIVERY_NOTES_BUCKET).upload(path, file, {
+    contentType: file.type || "image/jpeg",
+    upsert: false,
+  });
+  if (error) throw new Error(error.message);
+  return path;
+}
+
 /** Storage bucket for fault photos (public read). Must exist in the Supabase project. */
 export const FAULT_PHOTOS_BUCKET = "fault-photos";
 

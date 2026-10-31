@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
@@ -8,20 +8,22 @@ import { Input } from "@/components/ui/Input";
 import { Notice } from "@/components/ui/Notice";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { Stepper } from "@/components/ui/Stepper";
-import { useData } from "@/lib/store";
-import { useCurrentWorker, useRecentCustomers } from "@/lib/worker-store";
+import { useData, normalizeName } from "@/lib/store";
+import { useCurrentWorker, useRecentCustomers, uploadDeliveryReceipt, DELIVERY_NOTES_BUCKET } from "@/lib/worker-store";
+import { parseDeliveryNote } from "@/lib/worker/ocr";
 import { fmtQty } from "@/lib/format";
 import { Done, Foot, Picker, Row, StepHead, Summary, type PickItem, type SummaryLine } from "@/components/worker";
 
 type Step = "start" | "lines" | "summary" | "done";
-type Line = { id: string; productId: string | null; qty: number };
+/** `hint` is the wording read from the receipt when no product matched it yet. */
+type Line = { id: string; productId: string | null; qty: number; hint?: string; scanned?: boolean };
 
 const STEPS = [
   { key: "start", label: "לקוח" },
   { key: "lines", label: "פריטים" },
   { key: "summary", label: "אישור" },
 ];
-const newLine = (): Line => ({ id: Math.random().toString(36).slice(2), productId: null, qty: 1 });
+const newLine = (partial: Partial<Line> = {}): Line => ({ id: Math.random().toString(36).slice(2), productId: null, qty: 1, ...partial });
 
 export default function DeliverPage() {
   const router = useRouter();
@@ -34,6 +36,11 @@ export default function DeliverPage() {
   const [reference, setReference] = useState("");
   const [lines, setLines] = useState<Line[]>([newLine()]);
   const [pickFor, setPickFor] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<{ file: File; url: string } | null>(null);
+  const [storagePath, setStoragePath] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [scan, setScan] = useState<"idle" | "ok" | "empty" | "error">("idle");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SummaryLine[] | null>(null);
@@ -41,6 +48,49 @@ export default function DeliverPage() {
   useEffect(() => {
     if (ready && !worker) router.replace("/worker");
   }, [ready, worker, router]);
+
+  useEffect(() => () => { if (photo) URL.revokeObjectURL(photo.url); }, [photo]);
+
+  /** Match a line read from the receipt to a factory product by SKU, barcode or name. */
+  const matchProduct = useCallback((name: string, sku: string | null | undefined) => {
+    const n = normalizeName(name);
+    const k = (sku ?? "").trim().toLowerCase();
+    return state.products.find((p) => (k && (p.sku.toLowerCase() === k || (p.barcode ?? "").toLowerCase() === k)) || normalizeName(p.name) === n)
+      ?? state.products.find((p) => n.length >= 3 && (normalizeName(p.name).includes(n) || n.includes(normalizeName(p.name))));
+  }, [state.products]);
+
+  /* ── receipt photo: preview now, OCR to prefill lines, upload when continuing ── */
+  const onPhoto = useCallback(async (file: File | undefined) => {
+    if (!file) return;
+    setUploadError(null);
+    setStoragePath(null);
+    setPhoto((prev) => { if (prev) URL.revokeObjectURL(prev.url); return { file, url: URL.createObjectURL(file) }; });
+    setScanning(true);
+    setScan("idle");
+    try {
+      const scanned = await parseDeliveryNote(file);
+      if (scanned.length) {
+        setLines(scanned.map((l) => {
+          const p = matchProduct(l.externalName, l.externalSku);
+          return newLine({ productId: p?.id ?? null, qty: Math.max(1, Math.round(l.qty)), hint: p ? undefined : l.externalName, scanned: true });
+        }));
+        setScan("ok");
+      } else setScan("empty");
+    } catch {
+      setScan("error");
+    } finally {
+      setScanning(false);
+    }
+  }, [matchProduct]);
+
+  const startUpload = useCallback(async () => {
+    if (!photo || !worker || storagePath) return;
+    try {
+      setStoragePath(await uploadDeliveryReceipt(photo.file, worker.id));
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : String(e));
+    }
+  }, [photo, worker, storagePath]);
 
   const productItems = useMemo<PickItem[]>(
     () => state.products.map((p) => ({ id: p.id, title: p.name, sub: `${p.sku}${p.barcode ? ` · ${p.barcode}` : ""}`, keywords: `${p.sku} ${p.barcode ?? ""}`, end: <span className="sa-num">{fmtQty(p.qty)}</span> })),
@@ -56,11 +106,12 @@ export default function DeliverPage() {
     setBusy(true);
     setError(null);
     const name = customer.trim();
+    const photoNote = storagePath ? ` · קבלה צולמה · ${DELIVERY_NOTES_BUCKET}/${storagePath}` : photo ? " · קבלה צולמה (ההעלאה נכשלה)" : "";
     const out: SummaryLine[] = [];
     try {
       for (const l of valid) {
         const p = product(l.productId)!;
-        await issue({ productId: p.id, qty: l.qty, workerId: worker.id, reference: reference.trim() || null, note: `ללקוח: ${name}` });
+        await issue({ productId: p.id, qty: l.qty, workerId: worker.id, reference: reference.trim() || null, note: `ללקוח: ${name}${photoNote}` });
         out.push({ key: l.id, title: p.name, sub: p.sku, qty: l.qty, unit: p.unit });
       }
       remember(name);
@@ -95,8 +146,27 @@ export default function DeliverPage() {
           </div>
         ) : null}
         <Input size="touch" label="מספר מסמך" optional mono inputMode="numeric" placeholder="123456" value={reference} onChange={(e) => setReference(e.target.value)} />
+        <section className="wk-stack">
+          <span className="sa-label">קבלה / תעודת מסירה <span className="sa-faint" style={{ fontWeight: 400 }}>אופציונלי</span></span>
+          <label className="wk-photo">
+            <input type="file" accept="image/*" capture="environment" onChange={(e) => { onPhoto(e.target.files?.[0]); e.target.value = ""; }} aria-label="צלם את הקבלה" />
+            <Icon name="camera" />
+            {photo ? "צלם שוב" : "צלם את הקבלה"}
+          </label>
+          {photo ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <div className="wk-preview"><img src={photo.url} alt="תצלום הקבלה" /></div>
+              <Row quiet title="הסר תמונה" onClick={() => { setPhoto(null); setScan("idle"); }} />
+            </>
+          ) : null}
+          {scanning ? <Notice tone="neutral" title="קורא את הקבלה…" /> : null}
+          {!scanning && scan === "ok" ? <Notice tone="success" title={`זוהו ${lines.length} פריטים`}>בשלב הבא תאשר כל פריט.</Notice> : null}
+          {!scanning && scan === "empty" ? <Notice tone="neutral" title="לא זוהו פריטים בקבלה">אפשר לבחור את הפריטים ידנית בשלב הבא.</Notice> : null}
+          {!scanning && scan === "error" ? <Notice tone="warning" title="קריאת הקבלה לא עבדה">התמונה תישמר; בחר את הפריטים ידנית.</Notice> : null}
+        </section>
         <Foot>
-          <Button variant="primary" size="touch" iconEnd="arrow-left" disabled={!customer.trim()} onClick={() => setStep("lines")}>המשך לפריטים</Button>
+          <Button variant="primary" size="touch" iconEnd="arrow-left" disabled={!customer.trim() || scanning} onClick={() => { void startUpload(); setStep("lines"); }}>המשך לפריטים</Button>
         </Foot>
       </main>
     );
@@ -108,6 +178,8 @@ export default function DeliverPage() {
         <StepHead title={customer.trim()} step={2} total={3} onBack={back} />
         <Stepper steps={STEPS} current="lines" />
         {state.products.length === 0 ? <Notice tone="neutral" title="אין מוצרים במלאי">מנהל יוסיף מוצרים ב־Super Admin.</Notice> : null}
+        {uploadError ? <Notice tone="warning" title="התמונה לא הועלתה" onDismiss={() => setUploadError(null)}>המסירה תישמר בלי התמונה. {uploadError}</Notice> : null}
+        {lines.some((l) => l.scanned) ? <Notice tone="accent" title="הפריטים נקראו מהקבלה">בדוק כל פריט ואשר את הכמויות.</Notice> : null}
         <div className="wk-stack">
           {lines.map((l, i) => {
             const p = product(l.productId);
@@ -119,8 +191,8 @@ export default function DeliverPage() {
                   {lines.length > 1 ? <button type="button" className="wk-line-remove" aria-label="הסר שורה" onClick={() => removeLine(l.id)}><Icon name="trash" /></button> : null}
                 </div>
                 <Row
-                  title={p ? p.name : "בחר מוצר"}
-                  sub={p ? <span className="sa-num">{p.sku}</span> : "שם, מק״ט או ברקוד"}
+                  title={p ? p.name : l.hint ? `מהקבלה: ${l.hint}` : "בחר מוצר"}
+                  sub={p ? <span className="sa-num">{p.sku}</span> : l.hint ? "לא זוהה במלאי — בחר מוצר" : "שם, מק״ט או ברקוד"}
                   selected={!!p}
                   end={<Icon name="chevron-left" size={18} />}
                   onClick={() => setPickFor(l.id)}
@@ -163,6 +235,7 @@ export default function DeliverPage() {
           { k: "לקוח", v: customer.trim() },
           { k: "עובד", v: worker.name },
           ...(reference.trim() ? [{ k: "מסמך", v: <span className="sa-num">{reference.trim()}</span> }] : []),
+          { k: "קבלה", v: photo ? (storagePath ? "צולמה והועלתה" : uploadError ? "צולמה, לא הועלתה" : "מעלה…") : "ללא" },
         ]}
         lines={summaryLines}
       />
