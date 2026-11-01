@@ -6,16 +6,16 @@
  * Nothing here touches store.tsx.
  */
 
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useRef, useSyncExternalStore } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { useData } from "@/lib/store";
+import { useData, type DocumentInput } from "@/lib/store";
 
 const WORKER_KEY = "worker.id";
 const CUSTOMERS_KEY = "worker.customers";
 const MAX_CUSTOMERS = 8;
 
-/** Storage bucket for photographed delivery notes. Must exist in the Supabase project. */
-export const DELIVERY_NOTES_BUCKET = "delivery-notes";
+/** Private storage bucket for photographed goods-in and goods-out receipts. */
+const DELIVERY_NOTES_BUCKET = "delivery-notes";
 
 function read(key: string): string | null {
   try {
@@ -96,10 +96,10 @@ export function useRecentCustomers() {
   return { recent: list, remember };
 }
 
-/** Upload a delivery-note photo; resolves to the storage path, or throws. */
-export async function uploadDeliveryNote(file: File, supplierId: string): Promise<string> {
+/** Upload a receipt photo under in/ or out/; resolves to the storage path, or throws. */
+async function uploadReceiptPhoto(file: File, kind: DocumentInput["kind"]): Promise<string> {
   const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
-  const path = `${supplierId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const path = `${kind}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const { error } = await supabase().storage.from(DELIVERY_NOTES_BUCKET).upload(path, file, {
     contentType: file.type || "image/jpeg",
     upsert: false,
@@ -108,16 +108,39 @@ export async function uploadDeliveryNote(file: File, supplierId: string): Promis
   return path;
 }
 
-/** Upload a photographed customer receipt (deliver flow); same bucket, under deliveries/. */
-export async function uploadDeliveryReceipt(file: File, workerId: string): Promise<string> {
-  const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
-  const path = `deliveries/${workerId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const { error } = await supabase().storage.from(DELIVERY_NOTES_BUCKET).upload(path, file, {
-    contentType: file.type || "image/jpeg",
-    upsert: false,
-  });
-  if (error) throw new Error(error.message);
-  return path;
+/**
+ * One upload per photo: `start` runs when the worker moves on, and `save` waits for it
+ * (trying once more on failure) before archiving the document, so a slow connection
+ * doesn't cost the photo. `save` resolves to the document id, or null when it couldn't be kept.
+ */
+export function useReceiptUpload(kind: DocumentInput["kind"]) {
+  const { createDocument } = useData();
+  const job = useRef<{ file: File; path: Promise<string>; documentId?: string } | null>(null);
+
+  const start = useCallback((file: File) => {
+    if (job.current?.file === file) return job.current;
+    const path = uploadReceiptPhoto(file, kind);
+    path.catch(() => undefined); // awaited, and retried, by save
+    job.current = { file, path };
+    return job.current;
+  }, [kind]);
+
+  const save = useCallback(async (file: File, details: Omit<DocumentInput, "kind" | "storagePath">) => {
+    try {
+      const first = start(file);
+      const storagePath = await first.path.catch(() => {
+        job.current = null;
+        return start(file).path;
+      });
+      const current = job.current!;
+      current.documentId ??= (await createDocument({ ...details, kind, storagePath })).id;
+      return current.documentId;
+    } catch {
+      return null;
+    }
+  }, [kind, start, createDocument]);
+
+  return { start, save };
 }
 
 /** Storage bucket for fault photos (public read). Must exist in the Supabase project. */

@@ -34,9 +34,10 @@ export type SupplierItem = Tables<"supplier_items">;
 export type Fault = Tables<"faults">;
 export type Worker = Tables<"workers">;
 export type ItemRequest = Tables<"item_requests">;
+export type DocumentRecord = Tables<"documents">;
 export type MovementType = Movement["type"];
 
-type TableName = "products" | "movements" | "suppliers" | "supplier_items" | "faults" | "workers" | "item_requests";
+type TableName = "products" | "movements" | "suppliers" | "supplier_items" | "faults" | "workers" | "item_requests" | "documents";
 
 type Row = { id: string };
 
@@ -58,6 +59,7 @@ type State = {
   faults: Fault[];
   workers: Worker[];
   itemRequests: ItemRequest[]; // most recent first
+  documents: DocumentRecord[]; // most recent first
   status: "loading" | "ready" | "error";
   error: string | null;
   live: boolean; // realtime channel subscribed
@@ -82,10 +84,11 @@ const KEY: Record<TableName, keyof State> = {
   faults: "faults",
   workers: "workers",
   item_requests: "itemRequests",
+  documents: "documents",
 };
 
 function sortFor(table: TableName, rows: Row[]): Row[] {
-  if (table === "movements" || table === "faults" || table === "item_requests") {
+  if (table === "movements" || table === "faults" || table === "item_requests" || table === "documents") {
     return [...rows].sort((a, b) =>
       String((b as Movement).created_at).localeCompare(String((a as Movement).created_at)),
     );
@@ -146,6 +149,7 @@ const initial: State = {
   faults: [],
   workers: [],
   itemRequests: [],
+  documents: [],
   status: "loading",
   error: null,
   live: false,
@@ -199,6 +203,8 @@ export type ReceiveInput = {
   /** The product name as written on the supplier's delivery note. With a supplier, this feeds the dictionary. */
   externalName?: string | null;
   externalSku?: string | null;
+  /** The archived photo this line was read from. */
+  documentId?: string | null;
 };
 export type IssueInput = Omit<ReceiveInput, "supplierId" | "externalName" | "externalSku">;
 
@@ -222,6 +228,16 @@ export type ItemRequestInput = {
   reference?: string | null;
   note?: string | null;
   workerNote?: string | null;
+  workerId?: string | null;
+  documentId?: string | null;
+};
+/** A photographed receipt, kept in the documents archive. */
+export type DocumentInput = {
+  kind: DocumentRecord["kind"];
+  storagePath: string; // path in the delivery-notes bucket
+  supplierId?: string | null;
+  customer?: string | null;
+  reference?: string | null;
   workerId?: string | null;
 };
 export type FaultInput = {
@@ -271,6 +287,9 @@ type Api = {
   /** Link the request to a product and issue its quantity, atomically in the DB. */
   approveItemRequest: (id: string, productId: string) => Promise<void>;
   rejectItemRequest: (id: string) => Promise<void>;
+  createDocument: (input: DocumentInput) => Promise<DocumentRecord>;
+  /** Movements saved from one document (not capped). */
+  fetchDocumentMovements: (documentId: string) => Promise<Movement[]>;
   /** Full movement history of one product (not capped). */
   fetchProductHistory: (productId: string) => Promise<Movement[]>;
 };
@@ -300,7 +319,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [state]);
 
   const reload = useCallback(async () => {
-    const [products, movements, suppliers, supplierItems, faults, workers, itemRequests] = await Promise.all([
+    const [products, movements, suppliers, supplierItems, faults, workers, itemRequests, documents] = await Promise.all([
       sb.from("products").select("*").order("name"),
       sb.from("movements").select("*").order("created_at", { ascending: false }).limit(RECENT_MOVEMENTS),
       sb.from("suppliers").select("*").order("name"),
@@ -308,8 +327,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       sb.from("faults").select("*").order("created_at", { ascending: false }),
       sb.from("workers").select("*").order("name"),
       sb.from("item_requests").select("*").order("created_at", { ascending: false }),
+      sb.from("documents").select("*").order("created_at", { ascending: false }),
     ]);
-    const err = [products, movements, suppliers, supplierItems, faults, workers, itemRequests].find((r) => r.error)?.error;
+    const err = [products, movements, suppliers, supplierItems, faults, workers, itemRequests, documents].find((r) => r.error)?.error;
     if (err) {
       dispatch({ type: "error", error: err.message });
       return;
@@ -324,6 +344,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         faults: faults.data ?? [],
         workers: workers.data ?? [],
         itemRequests: itemRequests.data ?? [],
+        documents: documents.data ?? [],
       },
     });
   }, [sb]);
@@ -333,7 +354,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     reload().catch((e) => !cancelled && dispatch({ type: "error", error: String(e?.message ?? e) }));
 
-    const tables: TableName[] = ["products", "movements", "suppliers", "supplier_items", "faults", "workers", "item_requests"];
+    const tables: TableName[] = ["products", "movements", "suppliers", "supplier_items", "faults", "workers", "item_requests", "documents"];
     let channel = sb.channel("super-admin-db");
     for (const table of tables) {
       channel = channel.on(
@@ -534,7 +555,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         id: tempId(), type, product_id: input.productId, qty: input.qty,
         worker_id: input.workerId ?? null, supplier_id: input.supplierId ?? null,
         reference: input.reference ?? null, note: input.note ?? null, created_at: now,
-        external_name: input.externalName?.trim() || null,
+        external_name: input.externalName?.trim() || null, document_id: input.documentId ?? null,
       };
       if (type === "in") bumpProduct(input.productId, input.qty);
       if (type === "out") bumpProduct(input.productId, -input.qty);
@@ -544,7 +565,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           type, product_id: input.productId, qty: input.qty,
           worker_id: input.workerId ?? null, supplier_id: input.supplierId ?? null,
           reference: input.reference || null, note: input.note || null,
-          external_name: input.externalName?.trim() || null,
+          external_name: input.externalName?.trim() || null, document_id: input.documentId ?? null,
         }, optimistic)) as Movement;
         return row;
       } catch (e) {
@@ -684,7 +705,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const row = {
         kind: input.kind, external_name: input.externalName, proposed_name: input.proposedName ?? null, qty: input.qty,
         customer: input.customer ?? null, reference: input.reference || null, note: input.note || null,
-        worker_note: input.workerNote || null, worker_id: input.workerId ?? null,
+        worker_note: input.workerNote || null, worker_id: input.workerId ?? null, document_id: input.documentId ?? null,
       };
       const optimistic: ItemRequest = {
         ...row, id: tempId(), status: "pending", normalized_name: normalizeName(input.externalName),
@@ -698,6 +719,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await reload();
     },
     rejectItemRequest: (id) => update("item_requests", id, { status: "rejected", resolved_at: new Date().toISOString() }),
+
+    createDocument: async (input) => {
+      const row = {
+        kind: input.kind, storage_path: input.storagePath, supplier_id: input.supplierId ?? null,
+        customer: input.customer || null, reference: input.reference || null, worker_id: input.workerId ?? null,
+      };
+      const optimistic: DocumentRecord = { ...row, id: tempId(), created_at: new Date().toISOString() };
+      return (await insert("documents", row, optimistic)) as DocumentRecord;
+    },
+    fetchDocumentMovements: async (documentId) => {
+      const { data, error } = await sb.from("movements").select("*").eq("document_id", documentId).order("created_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
 
     fetchProductHistory: async (productId) => {
       const { data, error } = await sb.from("movements").select("*").eq("product_id", productId).order("created_at", { ascending: false }).limit(500);

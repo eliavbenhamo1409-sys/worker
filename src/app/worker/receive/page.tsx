@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { cx } from "@/components/ui/cx";
 import { useData, type Product } from "@/lib/store";
-import { useCurrentWorker, uploadDeliveryNote, DELIVERY_NOTES_BUCKET } from "@/lib/worker-store";
+import { useCurrentWorker, useReceiptUpload } from "@/lib/worker-store";
 import type { ScannedLine } from "@/lib/worker/ocr";
 import { useDocumentScan, type ReadLine } from "@/lib/worker/scan";
 import { buildDictionary, matchLine, type Candidate } from "@/lib/worker/match";
@@ -79,6 +79,7 @@ export default function ReceivePage() {
   const { worker, ready } = useCurrentWorker();
   const { step, dir, go } = useSteps(ORDER, "start");
   const { scan, start: startScan, close: closeScan } = useDocumentScan();
+  const receipt = useReceiptUpload("in");
 
   const [supplierId, setSupplierId] = useState("");
   const [pickSupplier, setPickSupplier] = useState(false);
@@ -86,7 +87,6 @@ export default function ReceivePage() {
   const [reference, setReference] = useState("");
   const [mode, setMode] = useState<"photo" | "manual" | null>(null);
   const [photo, setPhoto] = useState<{ file: File; url: string } | null>(null);
-  const [storagePath, setStoragePath] = useState<string | null>(null);
   /** How many lines the last reading produced; null when nothing was read. */
   const [readCount, setReadCount] = useState<number | null>(null);
   /** Work lines on the note (delivery, cutting…): noted, never received into stock. */
@@ -120,20 +120,12 @@ export default function ReceivePage() {
   const onPhoto = useCallback((file: File | undefined) => {
     if (!file) return;
     setMode("photo");
-    setStoragePath(null);
     setReadCount(null);
     setPhoto((prev) => { if (prev) URL.revokeObjectURL(prev.url); return { file, url: URL.createObjectURL(file) }; });
     void startScan(file, { dictionary, products: state.products, supplierId });
   }, [dictionary, startScan, state.products, supplierId]);
 
-  const startUpload = useCallback(async () => {
-    if (!photo || !supplierId || storagePath) return;
-    try {
-      setStoragePath(await uploadDeliveryNote(photo.file, supplierId));
-    } catch {
-      // the movement note records that the photo didn't upload; the worker carries on
-    }
-  }, [photo, supplierId, storagePath]);
+  const startUpload = () => { if (photo) receipt.start(photo.file); };
 
   /* ── lines ── */
   const patch = (id: string, p: Partial<Line>) => setLines((ls) => ls.map((l) => (l.id === id ? { ...l, ...p } : l)));
@@ -170,13 +162,13 @@ export default function ReceivePage() {
       : [newLine()]);
     setReadCount(scan.goods.length + scan.services.length);
     closeScan();
-    void startUpload();
+    startUpload();
     go("lines");
   };
   const fillByHand = () => {
     setMode("manual");
     closeScan();
-    void startUpload();
+    startUpload();
     go("lines");
   };
   const identify = (l: ReadLine): Product | undefined => {
@@ -190,14 +182,15 @@ export default function ReceivePage() {
     setBusy(true);
     setError(null);
     const servicesNote = services.length ? `עבודות: ${services.map((sv) => `${sv.externalName}${sv.qty !== 1 ? ` ×${sv.qty}` : ""}`).join(", ")}` : "";
-    const photoNote = storagePath ? `תעודה צולמה · ${DELIVERY_NOTES_BUCKET}/${storagePath}` : photo ? "תעודה צולמה (ההעלאה נכשלה)" : "";
+    const documentId = photo ? await receipt.save(photo.file, { supplierId, reference: reference.trim() || null, workerId: worker.id }) : null;
+    const photoNote = documentId ? "תעודה צולמה" : photo ? "תעודה צולמה (ההעלאה נכשלה)" : "";
     const note = [photoNote, servicesNote].filter(Boolean).join(" · ") || null;
     setProgress(saved.current.size);
     try {
       for (const l of toReceive) {
         if (saved.current.has(l.id)) continue;
         const p = effectiveProduct(l)!;
-        await receive({ productId: p.id, qty: l.qty, supplierId, workerId: worker.id, reference: reference.trim() || null, note, externalName: l.externalName.trim() });
+        await receive({ productId: p.id, qty: l.qty, supplierId, workerId: worker.id, reference: reference.trim() || null, note, externalName: l.externalName.trim(), documentId });
         saved.current.set(l.id, { key: l.id, title: p.name, sub: l.externalName.trim() !== p.name ? l.externalName.trim() : undefined, qty: l.qty, unit: p.unit });
         setProgress(saved.current.size);
       }
@@ -292,7 +285,7 @@ export default function ReceivePage() {
         onBack={back}
         title="ממי קיבלת את הסחורה?"
         overlay={overlay}
-        foot={{ label: "המשך לשורות", iconEnd: "arrow-left", onClick: () => { void startUpload(); go("lines"); }, blocked }}
+        foot={{ label: "המשך לשורות", iconEnd: "arrow-left", onClick: () => { startUpload(); go("lines"); }, blocked }}
       >
         <Section id="supplier" n={1} title="הספק" need="required" done={!!supplier}>
           <Row title={supplier ? supplier.name : "בחירת ספק"} selected={!!supplier} end={<Icon name="chevron-left" size={20} />} onClick={() => setPickSupplier(true)} />

@@ -12,6 +12,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      documents: {
+        Row: {
+          created_at: string
+          customer: string | null
+          id: string
+          kind: Database["public"]["Enums"]["document_kind"]
+          reference: string | null
+          storage_path: string
+          supplier_id: string | null
+          worker_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          customer?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["document_kind"]
+          reference?: string | null
+          storage_path: string
+          supplier_id?: string | null
+          worker_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          customer?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["document_kind"]
+          reference?: string | null
+          storage_path?: string
+          supplier_id?: string | null
+          worker_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       faults: {
         Row: {
           created_at: string
@@ -72,6 +120,7 @@ export type Database = {
       }
       movements: {
         Row: {
+          document_id: string | null
           external_name: string | null
           created_at: string
           id: string
@@ -84,6 +133,7 @@ export type Database = {
           worker_id: string | null
         }
         Insert: {
+          document_id?: string | null
           external_name?: string | null
           created_at?: string
           id?: string
@@ -96,6 +146,7 @@ export type Database = {
           worker_id?: string | null
         }
         Update: {
+          document_id?: string | null
           external_name?: string | null
           created_at?: string
           id?: string
@@ -189,6 +240,7 @@ export type Database = {
       }
       item_requests: {
         Row: {
+          document_id: string | null
           created_at: string
           customer: string | null
           external_name: string
@@ -207,6 +259,7 @@ export type Database = {
           worker_note: string | null
         }
         Insert: {
+          document_id?: string | null
           created_at?: string
           customer?: string | null
           external_name: string
@@ -225,6 +278,7 @@ export type Database = {
           worker_note?: string | null
         }
         Update: {
+          document_id?: string | null
           created_at?: string
           customer?: string | null
           external_name?: string
@@ -371,6 +425,7 @@ export type Database = {
       normalize_name: { Args: { t: string }; Returns: string }
     }
     Enums: {
+      document_kind: "in" | "out"
       fault_status: "open" | "resolved"
       item_request_kind: "unknown" | "new_product"
       item_request_status: "pending" | "approved" | "rejected"
@@ -486,6 +541,7 @@ export type Enums<
 export const Constants = {
   public: {
     Enums: {
+      document_kind: ["in", "out"],
       fault_status: ["open", "resolved"],
       item_request_kind: ["unknown", "new_product"],
       item_request_status: ["pending", "approved", "rejected"],

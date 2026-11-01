@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { cx } from "@/components/ui/cx";
 import { useData } from "@/lib/store";
-import { useCurrentWorker, useRecentCustomers, uploadDeliveryReceipt, DELIVERY_NOTES_BUCKET } from "@/lib/worker-store";
+import { useCurrentWorker, useRecentCustomers, useReceiptUpload } from "@/lib/worker-store";
 import type { ScannedLine } from "@/lib/worker/ocr";
 import { useDocumentScan, type ReadLine } from "@/lib/worker/scan";
 import { buildDictionary, matchLine, type Candidate } from "@/lib/worker/match";
@@ -59,13 +59,13 @@ export default function DeliverPage() {
   const { recent, remember } = useRecentCustomers();
   const { step, dir, go } = useSteps(ORDER, "start");
   const { scan, start: startScan, close: closeScan } = useDocumentScan();
+  const receipt = useReceiptUpload("out");
 
   const [customer, setCustomer] = useState("");
   const [lines, setLines] = useState<Line[]>([newLine()]);
   const [pickFor, setPickFor] = useState<string | null>(null);
   const [addFor, setAddFor] = useState<string | null>(null);
   const [photo, setPhoto] = useState<{ file: File; url: string } | null>(null);
-  const [storagePath, setStoragePath] = useState<string | null>(null);
   /** How many lines the last reading produced; null when nothing was read. */
   const [readCount, setReadCount] = useState<number | null>(null);
   /** Work lines read from the receipt (cutting, delivery…): recorded in the note, never deducted. */
@@ -95,20 +95,12 @@ export default function DeliverPage() {
   /* ── receipt photo: preview now, OCR to prefill lines, upload when continuing ── */
   const onPhoto = useCallback((file: File | undefined) => {
     if (!file) return;
-    setStoragePath(null);
     setReadCount(null);
     setPhoto((prev) => { if (prev) URL.revokeObjectURL(prev.url); return { file, url: URL.createObjectURL(file) }; });
     void startScan(file, { dictionary, products: state.products });
   }, [dictionary, startScan, state.products]);
 
-  const startUpload = useCallback(async () => {
-    if (!photo || !worker || storagePath) return;
-    try {
-      setStoragePath(await uploadDeliveryReceipt(photo.file, worker.id));
-    } catch {
-      // the movement note records that the photo didn't upload; the worker carries on
-    }
-  }, [photo, worker, storagePath]);
+  const startUpload = () => { if (photo) receipt.start(photo.file); };
 
   const removePhoto = () => {
     setPhoto(null);
@@ -148,12 +140,12 @@ export default function DeliverPage() {
     setLines(scan.goods.length ? scan.goods.map((l) => scannedLine(l, l.suggested)) : [newLine()]);
     setReadCount(scan.goods.length + scan.services.length);
     closeScan();
-    void startUpload();
+    startUpload();
     go("lines");
   };
   const fillByHand = () => {
     closeScan();
-    void startUpload();
+    startUpload();
     go("lines");
   };
   const identify = (l: ReadLine) => (l.match.status === "sure" ? product(l.match.productId) : undefined);
@@ -162,14 +154,15 @@ export default function DeliverPage() {
     if (!worker) return;
     setBusy(true);
     setError(null);
-    const photoNote = storagePath ? ` · קבלה צולמה · ${DELIVERY_NOTES_BUCKET}/${storagePath}` : photo ? " · קבלה צולמה (ההעלאה נכשלה)" : "";
+    const documentId = photo ? await receipt.save(photo.file, { customer: name, workerId: worker.id }) : null;
+    const photoNote = documentId ? " · קבלה צולמה" : photo ? " · קבלה צולמה (ההעלאה נכשלה)" : "";
     const note = `ללקוח: ${name}${photoNote}${servicesNote}`;
     setProgress(saved.current.size);
     try {
       for (const l of valid) {
         if (saved.current.has(l.id)) continue;
         const p = product(l.productId)!;
-        await issue({ productId: p.id, qty: l.qty, workerId: worker.id, note });
+        await issue({ productId: p.id, qty: l.qty, workerId: worker.id, note, documentId });
         saved.current.set(l.id, { key: l.id, title: p.name, sub: p.sku, qty: l.qty, unit: p.unit });
         setProgress(saved.current.size);
       }
@@ -177,7 +170,7 @@ export default function DeliverPage() {
         if (saved.current.has(l.id)) continue;
         await createItemRequest({
           kind: l.route === "new" ? "new_product" : "unknown", externalName: l.hint ?? routedTitle(l), proposedName: l.proposedName ?? null,
-          qty: l.qty, customer: name, note, workerNote: l.workerNote ?? null, workerId: worker.id,
+          qty: l.qty, customer: name, note, workerNote: l.workerNote ?? null, workerId: worker.id, documentId,
         });
         saved.current.set(l.id, { key: l.id, title: routedTitle(l), sub: routedSub(l), qty: l.qty });
         setProgress(saved.current.size);
@@ -253,7 +246,7 @@ export default function DeliverPage() {
         foot={{
           label: photo ? "המשך לפריטים" : "המשך בלי קבלה",
           iconEnd: "arrow-left",
-          onClick: () => { void startUpload(); go("lines"); },
+          onClick: () => { startUpload(); go("lines"); },
           blocked: name ? null : { reason: "חסר שם לקוח", onTap: () => pointAt("customer") },
         }}
       >
