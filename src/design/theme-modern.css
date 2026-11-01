@@ -865,10 +865,10 @@ html[dir="rtl"]:is([data-theme="modern"], [data-theme="modern-dark"]) .sa-dict-c
   letter-spacing: -0.03em;
 }
 :is(html[data-theme="modern"], html[data-theme="modern-dark"]) .wk-sub {
-  font-size: 15.5px;
+  font-size: 17px;
 }
 :is(html[data-theme="modern"], html[data-theme="modern-dark"]) .wk-title {
-  font-size: 21px;
+  font-size: 27px;
   letter-spacing: -0.025em;
 }
 :is(html[data-theme="modern"], html[data-theme="modern-dark"]) .wk-back {
@@ -940,6 +940,7 @@ html[dir="rtl"]:is([data-theme="modern"], [data-theme="modern-dark"]) .sa-dict-c
   box-shadow: none;
   border-color: var(--border-strong);
 }
+:is(html[data-theme="modern"], html[data-theme="modern-dark"]) .wk-section,
 :is(html[data-theme="modern"], html[data-theme="modern-dark"]) .wk-line,
 :is(html[data-theme="modern"], html[data-theme="modern-dark"]) .wk-sum {
   border-radius: 20px;
@@ -956,19 +957,54 @@ html[dir="rtl"]:is([data-theme="modern"], [data-theme="modern-dark"]) .sa-dict-c
 }
 :is(html[data-theme="modern"], html[data-theme="modern-dark"]) .wk-photo {
   border-radius: var(--radius-lg);
-  border-color: var(--border-strong);
-  background: var(--bg-muted);
-}
-:is(html[data-theme="modern"], html[data-theme="modern-dark"]) .wk-photo:hover {
   border-color: var(--accent);
-  background: var(--accent-soft);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+:is(html[data-theme="modern"], html[data-theme="modern-dark"]) .wk-photo.is-quiet {
+  border-color: var(--border-strong);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+:is(html[data-theme="modern"], html[data-theme="modern-dark"]) .wk-photo.is-locked {
+  border-color: var(--border-subtle);
+  background: var(--bg-muted);
+  color: var(--text-secondary);
 }
 :is(html[data-theme="modern"], html[data-theme="modern-dark"]) .wk-preview {
   border-radius: var(--radius-lg);
   border-color: var(--border-subtle);
 }
 :is(html[data-theme="modern"], html[data-theme="modern-dark"]) .wk-foot {
-  background: linear-gradient(to top, var(--bg-canvas) 60%, transparent);
+  border-top-color: var(--border-subtle);
+  box-shadow: var(--shadow-lg);
+}
+:is(html[data-theme="modern"], html[data-theme="modern-dark"]) .wk-bar {
+  border-bottom-color: var(--border-subtle);
+}
+:is(html[data-theme="modern"], html[data-theme="modern-dark"]) .wk-sys-mark {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-radius: 10px;
+}
+:is(html[data-theme="modern"], html[data-theme="modern-dark"]) .wk-progress-line::after {
+  background: var(--accent);
+}
+:is(html[data-theme="modern"], html[data-theme="modern-dark"]) .wk-section-n {
+  border-radius: 999px;
+}
+:is(html[data-theme="modern"], html[data-theme="modern-dark"]) .wk-chip {
+  border-radius: 999px;
+  padding-inline: var(--space-4);
+}
+:is(html[data-theme="modern"], html[data-theme="modern-dark"]) .wk-chip.is-selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+:is(html[data-theme="modern"], html[data-theme="modern-dark"]) .wk-hint {
+  border-color: var(--border-subtle);
+  box-shadow: var(--shadow-sm);
 }
 :is(html[data-theme="modern"], html[data-theme="modern-dark"]) .wk-sheet,
 :is(html[data-theme="modern"], html[data-theme="modern-dark"]) .wk-done {
@@ -1089,6 +1125,7 @@ html[data-theme="modern-dark"] .sa-card,
 html[data-theme="modern-dark"] .sa-stat,
 html[data-theme="modern-dark"] .sa-table-wrap,
 html[data-theme="modern-dark"] .sa-bigaction,
+html[data-theme="modern-dark"] .wk-section,
 html[data-theme="modern-dark"] .wk-line,
 html[data-theme="modern-dark"] .wk-sum,
 html[data-theme="modern-dark"] .wk-row {
