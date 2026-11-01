@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, type CSSProperties, type ReactElement } from "react";
+import { Fragment, useEffect, useRef, type CSSProperties, type ReactElement } from "react";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { cx } from "@/components/ui/cx";
 import type { Product } from "@/lib/store";
 import { fmtQty } from "@/lib/format";
 import type { ReadLine, Scan, ScanDoc, ScanStage } from "@/lib/worker/scan";
-import { CameraButton, ThinkingMark, useTakingLong } from "@/components/worker";
+import { CameraButton, useTakingLong } from "@/components/worker";
 
 const STAGES: { key: ScanStage; label: string }[] = [
   { key: "prepare", label: "מכין את התמונה" },
@@ -15,36 +15,26 @@ const STAGES: { key: ScanStage; label: string }[] = [
   { key: "match", label: "משווה למילון המחסן" },
 ];
 
-/** The mark of everything the system worked out on its own. */
-export function Smart({ size = 16 }: { size?: number }): ReactElement {
-  return (
-    <svg className="wk-smart" width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M12 2.5l1.9 6.1a2.2 2.2 0 0 0 1.5 1.5l6.1 1.9-6.1 1.9a2.2 2.2 0 0 0-1.5 1.5L12 21.5l-1.9-6.1a2.2 2.2 0 0 0-1.5-1.5l-6.1-1.9 6.1-1.9a2.2 2.2 0 0 0 1.5-1.5L12 2.5z" />
-    </svg>
-  );
-}
-
 function Document({ doc }: { doc: ScanDoc | null }): ReactElement {
   return (
-    <div className="wk-frame">
-      <i className="wk-corner" /><i className="wk-corner" /><i className="wk-corner" /><i className="wk-corner" />
-      <figure className={cx("wk-doc", !doc && "is-waiting")}>
-        {doc ? (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={doc.url} alt="המסמך שצולם" />
-            {doc.regions.map((r, i) => (
-              <span key={i} className="wk-region" style={{ "--x": r.x, "--y": r.y, "--w": r.w, "--h": r.h } as CSSProperties} />
-            ))}
-            <span className="wk-doc-sweep" />
-          </>
-        ) : null}
-      </figure>
-    </div>
+    <figure className={cx("wk-doc", !doc && "is-waiting")}>
+      {doc ? (
+        <Fragment key={doc.url}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={doc.url} alt="המסמך שצולם" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <span className="wk-doc-clean"><img src={doc.url} alt="" /></span>
+          {doc.regions.map((r, i) => (
+            <span key={i} className="wk-mark" style={{ "--x": r.x, "--y": r.y, "--w": r.w, "--h": r.h } as CSSProperties} />
+          ))}
+          <span className="wk-doc-line" />
+        </Fragment>
+      ) : null}
+    </figure>
   );
 }
 
-function Stages({ stage, count }: { stage: ScanStage; count: number }): ReactElement {
+function Stages({ stage }: { stage: ScanStage }): ReactElement {
   const now = STAGES.findIndex((s) => s.key === stage);
   const long = useTakingLong(true, 9000);
   return (
@@ -52,13 +42,13 @@ function Stages({ stage, count }: { stage: ScanStage; count: number }): ReactEle
       <ol className="wk-scan-stages">
         {STAGES.map((s, i) => (
           <li key={s.key} className={cx("wk-scan-stage-row", i < now && "is-done", i === now && "is-active")} aria-current={i === now ? "step" : undefined}>
-            <span className="wk-scan-tick" aria-hidden="true">{i < now ? <Icon name="check" size={16} strokeWidth={3} /> : i === now ? <ThinkingMark /> : null}</span>
+            <span className="wk-scan-tick" aria-hidden="true">{i < now ? <Icon name="check" size={16} strokeWidth={3} /> : i === now ? <span className="wk-scan-spin" /> : null}</span>
             {s.label}
           </li>
         ))}
       </ol>
       <p className="wk-scan-status" role="status">
-        {long ? "עוד רגע, ממשיך לקרוא" : count ? `${count} אזורי טקסט בתמונה` : " "}
+        {long ? "עוד רגע, ממשיך לקרוא" : null}
       </p>
     </div>
   );
@@ -107,16 +97,14 @@ export function Scanner({ scan, docName, unit, identify, onContinue, onManual, o
   return (
     <div className={cx("wk-scan", settled && "is-settled")} role="dialog" aria-modal="true" aria-label={`קריאת ${docName}`}>
       <header className="wk-scan-head">
-        <p className="wk-scan-eyebrow"><Smart /> קריאה חכמה</p>
-        <h1 className="wk-scan-title">{settled ? "הקריאה הסתיימה" : `המערכת קוראת את ${docName}`}</h1>
-        {settled ? null : <p className="wk-scan-lead">זה לוקח כמה שניות</p>}
+        <h1 className="wk-scan-title">{settled ? "הקריאה הסתיימה" : `מעבד את ${docName}`}</h1>
       </header>
       <div className="wk-scan-stage">
         <Document doc={scan.doc} />
       </div>
       {scan.status === "reading" ? (
         <>
-          <Stages stage={scan.stage} count={scan.doc?.regions.length ?? 0} />
+          <Stages stage={scan.stage} />
           <button type="button" className="wk-scan-cancel" onClick={onCancel}>ביטול</button>
         </>
       ) : null}
@@ -125,7 +113,6 @@ export function Scanner({ scan, docName, unit, identify, onContinue, onManual, o
         <div className="wk-scan-sheet">
           <div className="wk-scan-sheet-head">
             <h2 ref={headingRef} tabIndex={-1} className="wk-scan-sheet-title">
-              <Smart size={18} />
               {scan.goods.length ? `נקראו ${count(scan.goods.length, `${unit.one} אחת`, unit.many)}` : "לא נמצאו פריטי סחורה במסמך"}
             </h2>
             <p className="wk-scan-sheet-lead">

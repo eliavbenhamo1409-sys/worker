@@ -14,7 +14,7 @@ import { useDocumentScan, type ReadLine } from "@/lib/worker/scan";
 import { buildDictionary, matchLine, type Candidate } from "@/lib/worker/match";
 import { fmtQty } from "@/lib/format";
 import { Boot, CameraButton, Cta, Done, Flow, Hint, Picker, Row, Section, StepHead, Summary, pointAt, useSteps, type PickItem, type SummaryLine } from "@/components/worker";
-import { Scanner, Smart } from "@/components/worker/Scanner";
+import { Scanner } from "@/components/worker/Scanner";
 
 type Step = "start" | "lines" | "summary" | "done";
 /** `hint` is the wording read from the receipt. `candidates` are products it resembles, for the worker to confirm. `route` hands the line to the manager. */
@@ -331,7 +331,7 @@ export default function DeliverPage() {
                 </div>
                 {unknown ? (
                   <div className="wk-receipt">
-                    <span className="wk-receipt-k">{l.scanned ? <><Smart size={14} /> כתוב בקבלה</> : "פריט"}</span>
+                    <span className="wk-receipt-k">{l.scanned ? "כתוב בקבלה" : "פריט"}</span>
                     <span className="wk-receipt-name">{l.hint}</span>
                   </div>
                 ) : (

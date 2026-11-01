@@ -1,6 +1,6 @@
 /**
  * Finds where the writing sits in a photographed document, so the reading
- * animation lights up the real text on the page rather than a decoration.
+ * animation marks the real text on the page rather than a decoration.
  * Runs on a small copy of the photo in a few milliseconds; it reads nothing
  * and its result never reaches the data, it only draws.
  */

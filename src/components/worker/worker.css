@@ -221,67 +221,56 @@
 .wk-done-bar span { display: block; height: 100%; background: var(--bg-inverse); transform-origin: right; animation: wk-drain 8s linear forwards; }
 @keyframes wk-drain { to { transform: scaleX(0); } }
 
-/* ── Smart reading: the moment the system reads a document ───
-   Always the dark chamber, in every theme: light only reads as light on black. */
+/* ── Document reading ────────────────────────────────────────
+   A step of the system like any other, on the worker's own surface. One line crosses
+   the page once; what it has passed is the clean scan, and the text it read stays marked. */
 .wk-scan {
-  --beam: #cfe0ff; --beam-glow: rgba(116, 165, 255, 0.85); --trail: rgba(116, 165, 255, 0.26); --sweep: 2600ms;
-  position: fixed; inset: 0; z-index: 80; overflow: hidden; display: flex; flex-direction: column; align-items: center; color: #f3f5f9; animation: wk-fade 0.24s ease both;
-  background: radial-gradient(120% 70% at 50% 42%, #171b26 0%, #0b0d13 70%), #0b0d13;
+  --pass: 3200ms;
+  position: fixed; inset: 0; z-index: 80; overflow: hidden; display: flex; flex-direction: column; align-items: center; color: var(--text-primary); background: var(--bg-canvas); animation: wk-fade 0.2s ease both;
 }
-.wk-scan::before { content: ""; position: absolute; inset: 0; pointer-events: none; background-image: radial-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px); background-size: 22px 22px; }
-.wk-scan > * { position: relative; }
-.wk-scan-head { width: 100%; max-width: var(--worker); padding: calc(var(--space-5) + env(safe-area-inset-top)) var(--space-5) var(--space-3); text-align: center; flex-shrink: 0; }
-.wk-scan-eyebrow { margin: 0 0 var(--space-1); display: inline-flex; align-items: center; gap: 6px; font-size: 15px; line-height: 22px; font-weight: 600; color: #a9c5ff; }
-.wk-smart { flex-shrink: 0; }
+.wk-scan-head { width: 100%; max-width: var(--worker); padding: calc(var(--space-5) + env(safe-area-inset-top)) var(--space-5) var(--space-3); flex-shrink: 0; }
 .wk-scan-title { margin: 0; font-size: 24px; line-height: 30px; font-weight: 800; letter-spacing: -0.02em; }
-.wk-scan-lead { margin: var(--space-1) 0 0; font-size: 16px; line-height: 24px; color: rgba(243, 245, 249, 0.72); }
-.wk-scan-stage { flex: 1; min-height: 0; width: 100%; display: flex; align-items: flex-start; justify-content: center; padding: var(--space-2) var(--space-4); }
+.wk-scan-stage { flex: 1; min-height: 0; width: 100%; max-width: var(--worker); display: flex; align-items: flex-start; justify-content: center; padding: var(--space-2) var(--space-5); }
 
-.wk-frame { position: relative; padding: 10px; max-width: 100%; transform-origin: top center; transition: transform 0.56s var(--wk-sheet); }
-.wk-corner { position: absolute; width: 22px; height: 22px; border: 0 solid rgba(255, 255, 255, 0.82); animation: wk-corner-in 0.5s var(--wk-enter) both; transition: border-color 0.3s ease; }
-.wk-corner:nth-of-type(1) { top: 0; left: 0; border-top-width: 2px; border-left-width: 2px; border-top-left-radius: 6px; --cx: -6px; --cy: -6px; }
-.wk-corner:nth-of-type(2) { top: 0; right: 0; border-top-width: 2px; border-right-width: 2px; border-top-right-radius: 6px; --cx: 6px; --cy: -6px; }
-.wk-corner:nth-of-type(3) { bottom: 0; left: 0; border-bottom-width: 2px; border-left-width: 2px; border-bottom-left-radius: 6px; --cx: -6px; --cy: 6px; }
-.wk-corner:nth-of-type(4) { bottom: 0; right: 0; border-bottom-width: 2px; border-right-width: 2px; border-bottom-right-radius: 6px; --cx: 6px; --cy: 6px; }
-@keyframes wk-corner-in { from { opacity: 0; transform: translate(var(--cx), var(--cy)); } }
+.wk-doc { position: relative; display: block; margin: 0; max-width: 100%; overflow: hidden; background: var(--bg-surface); box-shadow: 0 0 0 1px var(--border-strong); line-height: 0; transform-origin: top center; transition: transform 0.5s var(--wk-sheet); }
+.wk-doc.is-waiting { width: min(58vw, 240px); aspect-ratio: 3 / 4; background: var(--bg-muted); }
+.wk-doc > img { display: block; max-width: 100%; max-height: min(calc(100dvh - 296px), 540px); width: auto; height: auto; opacity: 0.42; animation: wk-fade 0.24s ease both; }
 
-.wk-doc { position: relative; display: block; margin: 0; border-radius: 4px; overflow: hidden; background: #1a1e29; box-shadow: 0 24px 50px -18px rgba(0, 0, 0, 0.8); line-height: 0; }
-.wk-doc.is-waiting { width: min(58vw, 240px); aspect-ratio: 3 / 4; animation: wk-breathe 1.4s ease-in-out infinite; }
-.wk-doc img { display: block; max-width: 100%; max-height: min(calc(100dvh - 366px), 540px); width: auto; height: auto; animation: wk-doc-in 0.42s var(--wk-enter) both; }
-@keyframes wk-doc-in { from { opacity: 0; transform: scale(0.97); } }
+/* The reveal is two opposite slides, so it stays on the compositor even over a filtered photo. */
+.wk-doc-clean { position: absolute; inset: 0; overflow: hidden; animation: wk-reveal var(--pass) linear both; }
+.wk-doc-clean img { display: block; width: 100%; height: 100%; filter: grayscale(1) contrast(1.3) brightness(1.06); animation: wk-reveal-back var(--pass) linear both; }
+@keyframes wk-reveal { from { transform: translateY(-100%); } }
+@keyframes wk-reveal-back { from { transform: translateY(100%); } }
 
-/* What's still unread stays dim; the beam is the leading edge of that veil. */
-.wk-doc-sweep { position: absolute; inset: 0; background: rgba(8, 10, 16, 0.56); animation: wk-sweep var(--sweep) linear infinite; }
-.wk-doc-sweep::before { content: ""; position: absolute; top: 0; inset-inline: 0; height: 2px; background: var(--beam); box-shadow: 0 0 10px 1px var(--beam-glow), 0 0 34px 6px var(--trail); }
-.wk-doc-sweep::after { content: ""; position: absolute; bottom: 100%; inset-inline: 0; height: 104px; background: linear-gradient(to top, var(--trail), transparent); }
-@keyframes wk-sweep { 0% { transform: translateY(0); opacity: 0; } 4% { opacity: 1; } 88% { transform: translateY(100%); opacity: 1; } 100% { transform: translateY(100%); opacity: 0; } }
+/* Goes back and forth while the answer is on its way, like the head of a scanner. */
+.wk-doc-line { position: absolute; inset: 0; animation: wk-carriage var(--pass) linear infinite alternate; }
+.wk-doc-line::before { content: ""; position: absolute; top: 0; inset-inline: 0; height: 2px; background: var(--accent); }
+@keyframes wk-carriage { to { transform: translateY(calc(100% - 2px)); } }
 
-/* Each patch of text lights up as the beam crosses it. */
-.wk-region { position: absolute; left: calc(var(--x) * 100%); top: calc(var(--y) * 100%); width: calc(var(--w) * 100%); height: calc(var(--h) * 100%); border-radius: 2px; background: rgba(150, 190, 255, 0.2); box-shadow: inset 0 0 0 1px rgba(170, 203, 255, 0.72); opacity: 0; animation: wk-region var(--sweep) linear infinite; animation-delay: calc(var(--y) * var(--sweep) * 0.88); }
-@keyframes wk-region { 0% { opacity: 0; } 2% { opacity: 1; } 34% { opacity: 0.5; } 78% { opacity: 0.32; } 100% { opacity: 0; } }
+/* A pen stroke under each patch of text, drawn right to left as the line passes it, and left there. */
+.wk-mark { position: absolute; left: calc(var(--x) * 100%); top: calc((var(--y) + var(--h)) * 100%); width: calc(var(--w) * 100%); height: 1px; background: var(--accent); opacity: 0.6; transform-origin: right; animation: wk-mark-in 0.32s var(--wk-enter) both; animation-delay: calc((var(--y) + var(--h)) * var(--pass) + (1 - var(--x) - var(--w)) * 280ms); }
+@keyframes wk-mark-in { from { transform: scaleX(0); } }
 
-.wk-scan-panel { width: 100%; max-width: var(--worker); padding: var(--space-2) var(--space-6) 0; flex-shrink: 0; }
+.wk-scan-panel { width: 100%; max-width: var(--worker); padding: var(--space-3) var(--space-5) 0; flex-shrink: 0; }
 .wk-scan-stages { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.wk-scan-stage-row { display: flex; align-items: center; gap: var(--space-3); min-height: 28px; font-size: 17px; line-height: 24px; font-weight: 500; color: rgba(243, 245, 249, 0.58); transition: color 0.2s ease; }
-.wk-scan-stage-row.is-active { color: #fff; font-weight: 600; }
-.wk-scan-stage-row.is-done { color: rgba(243, 245, 249, 0.82); }
-.wk-scan-tick { width: 34px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; color: #a9c5ff; }
-.wk-scan-stage-row.is-done .wk-scan-tick { color: #6ee7b7; }
-.wk-scan-tick .wk-think { gap: 3px; }
-.wk-scan-tick .wk-think i { width: 6px; height: 6px; }
-.wk-scan-status { margin: var(--space-2) 0 0; font-size: 15px; line-height: 22px; color: rgba(243, 245, 249, 0.66); text-align: center; }
-.wk-scan-cancel { flex-shrink: 0; min-height: var(--touch); padding: 0 var(--space-6); margin-bottom: max(var(--space-2), env(safe-area-inset-bottom)); font-size: 16px; font-weight: 600; color: rgba(243, 245, 249, 0.86); text-decoration: underline; text-underline-offset: 3px; }
+.wk-scan-stage-row { display: flex; align-items: center; gap: var(--space-3); min-height: 28px; font-size: 17px; line-height: 24px; font-weight: 500; color: var(--text-tertiary); transition: color 0.2s ease; }
+.wk-scan-stage-row.is-active { color: var(--text-primary); font-weight: 600; }
+.wk-scan-stage-row.is-done { color: var(--text-secondary); }
+.wk-scan-tick { width: 20px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--success); }
+.wk-scan-spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--border-strong); border-top-color: var(--text-primary); animation: wk-spin 0.9s linear infinite; }
+@keyframes wk-spin { to { transform: rotate(360deg); } }
+.wk-scan-status { margin: var(--space-1) 0 0; min-height: 22px; font-size: 15px; line-height: 22px; color: var(--text-secondary); }
+.wk-scan-cancel { flex-shrink: 0; min-height: var(--touch); padding: 0 var(--space-6); margin-bottom: max(var(--space-2), env(safe-area-inset-bottom)); font-size: 16px; font-weight: 600; color: var(--text-secondary); text-decoration: underline; text-underline-offset: 3px; }
 
-/* Done reading: the page steps back and the result comes up, in the worker's own light. */
-.wk-scan.is-settled .wk-frame { transform: scale(0.5); }
-.wk-scan.is-settled .wk-corner { border-color: #6ee7b7; }
-.wk-scan.is-settled .wk-doc-sweep, .wk-scan.is-settled .wk-region { display: none; }
-.wk-scan-sheet { position: absolute !important; inset-inline: 0; bottom: 0; max-height: 72dvh; display: flex; flex-direction: column; background: var(--bg-surface); color: var(--text-primary); border-radius: 16px 16px 0 0; box-shadow: 0 -18px 40px -12px rgba(0, 0, 0, 0.55); animation: wk-sheet-up 0.46s var(--wk-sheet) both; }
+/* Done reading: the page steps back and the result comes up. */
+.wk-scan.is-settled .wk-doc { transform: scale(0.5); }
+.wk-scan.is-settled .wk-doc-line { display: none; }
+.wk-scan.is-settled .wk-doc-clean, .wk-scan.is-settled .wk-doc-clean img, .wk-scan.is-settled .wk-mark { animation: none; }
+.wk-scan-sheet { position: absolute; inset-inline: 0; bottom: 0; max-height: 72dvh; display: flex; flex-direction: column; background: var(--bg-surface); color: var(--text-primary); border-radius: 16px 16px 0 0; box-shadow: 0 0 0 1px var(--border-base), 0 -16px 36px -18px rgba(0, 0, 0, 0.28); animation: wk-sheet-up 0.4s var(--wk-sheet) both; }
 @keyframes wk-sheet-up { from { transform: translateY(100%); } }
 .wk-scan-sheet-head, .wk-scan-list, .wk-scan-actions { width: 100%; max-width: var(--worker); margin-inline: auto; }
 .wk-scan-sheet-head { padding: var(--space-5) var(--space-5) var(--space-3); flex-shrink: 0; }
-.wk-scan-sheet-title { margin: 0; display: flex; align-items: center; gap: var(--space-2); font-size: 22px; line-height: 28px; font-weight: 800; letter-spacing: -0.02em; }
-.wk-scan-sheet-title .wk-smart { color: var(--accent-text); }
+.wk-scan-sheet-title { margin: 0; font-size: 22px; line-height: 28px; font-weight: 800; letter-spacing: -0.02em; }
 .wk-scan-sheet-lead { margin: var(--space-1) 0 0; font-size: 16px; line-height: 24px; color: var(--text-secondary); }
 .wk-scan-list { list-style: none; margin-block: 0; padding: 0 var(--space-5); flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .wk-read { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid var(--border-subtle); animation: wk-read-in 0.34s var(--wk-enter) both; animation-delay: calc(240ms + var(--i) * 70ms); }
@@ -297,9 +286,9 @@
 
 /* Looping motion stops altogether here; the shared rule only speeds it up, which would strobe. */
 @media (prefers-reduced-motion: reduce) {
-  .wk-doc-sweep { display: none; }
-  .wk-region { animation: none !important; opacity: 0.6; }
-  .wk-think i, .wk-live-dot, .wk-doc.is-waiting { animation: none !important; opacity: 0.8; }
+  .wk-doc-line { display: none; }
+  .wk-doc-clean, .wk-doc-clean img, .wk-mark, .wk-scan-spin { animation: none !important; }
+  .wk-think i, .wk-live-dot { animation: none !important; opacity: 0.8; }
   .wk-done-mark polyline { stroke-dashoffset: 0; animation: none !important; }
   .wk-read { animation-delay: 0ms; }
 }

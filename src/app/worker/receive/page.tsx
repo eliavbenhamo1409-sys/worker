@@ -13,7 +13,7 @@ import type { ScannedLine } from "@/lib/worker/ocr";
 import { useDocumentScan, type ReadLine } from "@/lib/worker/scan";
 import { buildDictionary, matchLine, type Candidate } from "@/lib/worker/match";
 import { Boot, CameraButton, Cta, Done, Flow, Hint, Picker, Row, Section, StepHead, Summary, pointAt, useSteps, type PickItem, type SummaryLine } from "@/components/worker";
-import { Scanner, Smart } from "@/components/worker/Scanner";
+import { Scanner } from "@/components/worker/Scanner";
 
 type Step = "start" | "lines" | "summary" | "done";
 
@@ -368,7 +368,7 @@ export default function ReceivePage() {
                     <button type="button" className="wk-line-remove" aria-label={`הסרת שורה ${i + 1}`} onClick={() => removeLine(l.id)}><Icon name="trash" />הסרה</button>
                   ) : null}
                 </div>
-                {l.scanned ? <span className="wk-receipt-k"><Smart size={14} /> נקרא מהתעודה</span> : null}
+                {l.scanned ? <span className="wk-receipt-k">נקרא מהתעודה</span> : null}
                 <Input
                   size="touch"
                   label="שם המוצר כפי שכתוב בתעודה"

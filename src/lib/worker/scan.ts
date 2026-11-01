@@ -26,8 +26,8 @@ export type Scan =
 
 export type ScanContext = { dictionary: Dictionary; products: Product[]; supplierId?: string | null };
 
-/** One full sweep of the animation, so a quick answer doesn't flash past unseen. */
-const MIN_READ_MS = 2600;
+/** The line's first pass over the page, so a quick answer doesn't cut it short. */
+const MIN_READ_MS = 3200;
 /** A little past the server's own limit; after this the worker carries on by hand. */
 const READ_TIMEOUT_MS = 40_000;
 
