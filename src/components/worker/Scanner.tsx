@@ -13,7 +13,7 @@ import { CameraButton, useTakingLong } from "@/components/worker";
 const STAGES: { key: ScanStage; label: string }[] = [
   { key: "prepare", label: "מכין את התמונה" },
   { key: "read", label: "קורא את הכתוב במסמך" },
-  { key: "match", label: "משווה למילון המחסן" },
+  { key: "match", label: "משווה למוצרים במחסן" },
 ];
 
 function Document({ doc }: { doc: ScanDoc | null }): ReactElement {
@@ -115,7 +115,7 @@ export function Scanner({ scan, docName, unit, identify, onContinue, onManual, o
         <div className="wk-scan-sheet">
           <div className="wk-scan-sheet-head">
             <h2 ref={headingRef} tabIndex={-1} className="wk-scan-sheet-title">
-              {scan.goods.length ? `נקראו ${count(scan.goods.length, `${unit.one} אחת`, unit.many)}` : "לא נמצאו פריטי סחורה במסמך"}
+              {scan.goods.length ? `נקראו ${count(scan.goods.length, `${unit.one} אחת`, unit.many)}` : "לא נמצאו שורות סחורה במסמך"}
             </h2>
             <p className="wk-scan-sheet-lead">
               {scan.goods.length
@@ -145,7 +145,7 @@ export function Scanner({ scan, docName, unit, identify, onContinue, onManual, o
       {scan.status === "empty" || scan.status === "failed" ? (
         <div className="wk-scan-sheet">
           <div className="wk-scan-sheet-head">
-            <h2 ref={headingRef} tabIndex={-1} className="wk-scan-sheet-title">{scan.status === "empty" ? "לא נמצאו פריטים במסמך" : "הקריאה לא הצליחה"}</h2>
+            <h2 ref={headingRef} tabIndex={-1} className="wk-scan-sheet-title">{scan.status === "empty" ? "לא נמצאו שורות במסמך" : "הקריאה לא הצליחה"}</h2>
             <p className="wk-scan-sheet-lead">
               {scan.status === "empty"
                 ? "לצלם שוב מקרוב, או להקליד ידנית"

@@ -21,6 +21,9 @@ export { ThemeSettingsButton, type ThemeSettingsButtonProps } from "./ThemeSetti
 
 // Composites (written alongside; present at integration time)
 export * from "./Card";
+export * from "./PageHead";
+export * from "./Toolbar";
+export * from "./Count";
 export * from "./Table";
 export * from "./Stat";
 export * from "./Attention";

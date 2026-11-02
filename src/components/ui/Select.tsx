@@ -37,8 +37,8 @@ function labelText(label: ReactNode): string {
 
 /** Searchable select; `allLabel` adds an empty "all" option first. */
 export function Select({
-  options, value: valueProp, defaultValue, onChange, label, placeholder = "בחר", allLabel, searchPlaceholder = "חיפוש…",
-  emptyLabel = "אין תוצאות", searchable = true, disabled, open: openProp, defaultOpen, inline, activeIndex: activeProp,
+  options, value: valueProp, defaultValue, onChange, label, placeholder = "בחירה", allLabel, searchPlaceholder = "חיפוש לפי שם",
+  emptyLabel = "לא נמצאו תוצאות", searchable = true, disabled, open: openProp, defaultOpen, inline, activeIndex: activeProp,
   minWidth, maxWidth, block, className,
 }: SelectProps): ReactElement {
   const [openState, setOpenState] = useState(!!defaultOpen);

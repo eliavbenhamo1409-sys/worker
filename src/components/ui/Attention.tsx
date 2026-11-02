@@ -51,7 +51,7 @@ export function Attention({ items, className }: AttentionProps) {
           <li key={it.id ?? i} className="sa-attention-item">
             <Badge tone={sev}>{it.label}</Badge>
             {it.thumb ? (
-              <a className="sa-attention-thumb" href={it.thumb.src} target="_blank" rel="noreferrer" aria-label="פתח את התמונה">
+              <a className="sa-attention-thumb" href={it.thumb.src} target="_blank" rel="noreferrer" aria-label="פתיחת התמונה">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={it.thumb.src} alt={it.thumb.alt} loading="lazy" />
               </a>
@@ -66,7 +66,7 @@ export function Attention({ items, className }: AttentionProps) {
                 {it.dismissLabel ? (
                   <Button variant="secondary" size="sm" icon="check" onClick={it.onDismiss}>{it.dismissLabel}</Button>
                 ) : (
-                  <Button variant="ghost" size="sm" iconOnly icon="x" title="הסר מהרשימה" onClick={it.onDismiss} />
+                  <Button variant="ghost" size="sm" iconOnly icon="x" title="הסרה מהרשימה" onClick={it.onDismiss} />
                 )}
               </div>
             ) : it.onOpen ? (

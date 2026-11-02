@@ -1,16 +1,26 @@
 "use client";
 
 /**
- * Appearance. One design, in light or dark. The choice lives in localStorage
- * ("sa-theme") and is mirrored to <html data-theme="…">; a tiny inline script in
- * the root layout applies it before first paint so there is no flash.
+ * Appearance. Two styles, each in light or dark:
+ *   classic — graphite ink on warm paper, the original language;
+ *   minimal — neutral white or near-black, hairlines, one green, numbers in a monospace.
+ * The choice is one id ("light", "dark", "minimal", "minimal-dark") in localStorage
+ * ("sa-theme"), mirrored to <html data-theme="…">; a tiny inline script in the root
+ * layout applies it before first paint so there is no flash.
  * Older saved values ("classic", "modern", "modern-dark") still resolve.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from "react";
 
-export type ThemeId = "light" | "dark";
+export type ThemeId = "light" | "dark" | "minimal" | "minimal-dark";
+export type ThemeStyle = "classic" | "minimal";
+export type ThemeMode = "light" | "dark";
 
-export const THEMES: readonly { id: ThemeId; label: string }[] = [
+export const THEME_STYLES: readonly { id: ThemeStyle; label: string }[] = [
+  { id: "classic", label: "קלאסי" },
+  { id: "minimal", label: "מינימל" },
+] as const;
+
+export const THEME_MODES: readonly { id: ThemeMode; label: string }[] = [
   { id: "light", label: "בהיר" },
   { id: "dark", label: "כהה" },
 ] as const;
@@ -18,12 +28,27 @@ export const THEMES: readonly { id: ThemeId; label: string }[] = [
 export const THEME_STORAGE_KEY = "sa-theme";
 export const DEFAULT_THEME: ThemeId = "light";
 
-function resolve(v: string | null): ThemeId {
-  return v === "dark" || v === "modern-dark" ? "dark" : "light";
+/** The id is style and mode in one word; these take it apart and put it back together. */
+export function splitTheme(id: ThemeId): { style: ThemeStyle; mode: ThemeMode } {
+  return {
+    style: id === "minimal" || id === "minimal-dark" ? "minimal" : "classic",
+    mode: id === "dark" || id === "minimal-dark" ? "dark" : "light",
+  };
 }
 
-/** Runs before hydration; keep it tiny and self-contained (no imports). */
-export const THEME_BOOT_SCRIPT = `(function(){try{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});document.documentElement.setAttribute("data-theme",t==="dark"||t==="modern-dark"?"dark":"light");}catch(e){}})();`;
+export function joinTheme(style: ThemeStyle, mode: ThemeMode): ThemeId {
+  if (style === "minimal") return mode === "dark" ? "minimal-dark" : "minimal";
+  return mode;
+}
+
+function resolve(v: string | null): ThemeId {
+  if (v === "dark" || v === "modern-dark") return "dark";
+  if (v === "minimal" || v === "minimal-dark") return v;
+  return "light";
+}
+
+/** Runs before hydration; keep it tiny and self-contained (no imports). Mirrors resolve(). */
+export const THEME_BOOT_SCRIPT = `(function(){try{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});document.documentElement.setAttribute("data-theme",t==="dark"||t==="modern-dark"?"dark":t==="minimal"||t==="minimal-dark"?t:"light");}catch(e){}})();`;
 
 /* ── A tiny external store over localStorage ─────────────────────────────── */
 const listeners = new Set<() => void>();
@@ -72,9 +97,18 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const theme = useSyncExternalStore(subscribe, readStored, getServerSnapshot);
 
-  // Keep <html data-theme> in step with the store (the boot script did the first paint).
+  // Keep <html data-theme> in step with the store (the boot script did the first paint),
+  // and the phone's status bar in step with the page.
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
+    const root = document.documentElement;
+    root.setAttribute("data-theme", theme);
+    let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.name = "theme-color";
+      document.head.append(meta);
+    }
+    meta.content = getComputedStyle(root).getPropertyValue("--bg-canvas").trim();
   }, [theme]);
 
   const setTheme = useCallback((id: ThemeId) => {

@@ -1,15 +1,15 @@
 "use client";
 
 /**
- * "הגדרות" — a quiet link that opens a small dialog for light or dark appearance.
- * The choice applies at once and is saved on this device.
+ * "הגדרות" — a quiet link that opens a small dialog: the style (classic or minimal)
+ * and the appearance (light or dark). The choice applies at once and is saved on this device.
  *
  *   <ThemeSettingsButton variant="nav" />   → sidebar row (admin)
  *   <ThemeSettingsButton variant="text" />  → plain text link (worker)
  */
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactElement } from "react";
 import { createPortal } from "react-dom";
-import { THEMES, useTheme } from "@/lib/theme";
+import { joinTheme, splitTheme, THEME_MODES, THEME_STYLES, useTheme } from "@/lib/theme";
 import { Button } from "./Button";
 import { cx } from "./cx";
 import { Icon } from "./Icon";
@@ -48,6 +48,7 @@ export function ThemeSettingsButton({ variant = "nav", className }: ThemeSetting
 
 function SettingsDialog({ onClose }: { onClose: () => void }): ReactElement {
   const { theme, setTheme } = useTheme();
+  const { style, mode } = splitTheme(theme);
   const dialogRef = useRef<HTMLDivElement>(null);
   const uid = useId();
   const titleId = `sa-settings-${uid}-title`;
@@ -72,22 +73,15 @@ function SettingsDialog({ onClose }: { onClose: () => void }): ReactElement {
     if (!nodes.length) return;
     const first = nodes[0];
     const last = nodes[nodes.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
+    const current = document.activeElement;
+    // A click on the dialog's own text focuses the dialog, so Shift+Tab has to catch that too.
+    if (e.shiftKey && (current === first || current === dialogRef.current)) {
       e.preventDefault();
       last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
+    } else if (!e.shiftKey && current === last) {
       e.preventDefault();
       first.focus();
     }
-  };
-
-  // Radio-group keyboard: arrows move between the options and apply them.
-  const onOptKey = (e: KeyboardEvent<HTMLButtonElement>, idx: number) => {
-    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return;
-    e.preventDefault();
-    const next = (idx + 1) % THEMES.length;
-    setTheme(THEMES[next].id);
-    dialogRef.current?.querySelectorAll<HTMLButtonElement>(".sa-appearance-opt")[next]?.focus();
   };
 
   return createPortal(
@@ -110,34 +104,60 @@ function SettingsDialog({ onClose }: { onClose: () => void }): ReactElement {
       >
         <div className="sa-modal-head">
           <h2 className="sa-modal-title" id={titleId}>הגדרות</h2>
-          <Button variant="ghost" size="sm" iconOnly icon="x" aria-label="סגור" onClick={onClose} />
+          <Button variant="ghost" size="sm" iconOnly icon="x" aria-label="סגירה" onClick={onClose} />
         </div>
         <div className="sa-modal-body">
-          <div className="sa-appearance">
-            <span className="sa-appearance-label">מראה</span>
-            <div className="sa-appearance-opts" role="radiogroup" aria-label="מראה">
-              {THEMES.map((t, i) => {
-                const active = t.id === theme;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    tabIndex={active ? 0 : -1}
-                    className={cx("sa-appearance-opt", active && "is-active")}
-                    onClick={() => setTheme(t.id)}
-                    onKeyDown={(e) => onOptKey(e, i)}
-                  >
-                    {t.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <Choice label="סגנון" options={THEME_STYLES} value={style} onChange={(s) => setTheme(joinTheme(s, mode))} />
+          <Choice label="מראה" options={THEME_MODES} value={mode} onChange={(m) => setTheme(joinTheme(style, m))} />
         </div>
       </div>
     </div>,
     document.body,
+  );
+}
+
+interface ChoiceProps<T extends string> {
+  label: string;
+  options: readonly { id: T; label: string }[];
+  value: T;
+  onChange: (id: T) => void;
+}
+
+/** One row of the dialog: a word, then the options as a radio group. */
+function Choice<T extends string>({ label, options, value, onChange }: ChoiceProps<T>): ReactElement {
+  const groupRef = useRef<HTMLDivElement>(null);
+
+  // Radio-group keyboard: arrows move between the options and apply them.
+  const onOptKey = (e: KeyboardEvent<HTMLButtonElement>, idx: number) => {
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return;
+    e.preventDefault();
+    const next = (idx + 1) % options.length;
+    onChange(options[next].id);
+    groupRef.current?.querySelectorAll<HTMLButtonElement>(".sa-appearance-opt")[next]?.focus();
+  };
+
+  return (
+    <div className="sa-appearance">
+      <span className="sa-appearance-label">{label}</span>
+      <div ref={groupRef} className="sa-appearance-opts" role="radiogroup" aria-label={label}>
+        {options.map((o, i) => {
+          const active = o.id === value;
+          return (
+            <button
+              key={o.id}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              tabIndex={active ? 0 : -1}
+              className={cx("sa-appearance-opt", active && "is-active")}
+              onClick={() => onChange(o.id)}
+              onKeyDown={(e) => onOptKey(e, i)}
+            >
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }

@@ -36,7 +36,7 @@ export default function WorkerHome() {
     return (
       <main className="wk-home">
         <SystemBar live={state.live} />
-        <EmptyState title="עדיין אין עובדים במערכת" hint="המנהל מוסיף עובדים בלוח הניהול." />
+        <EmptyState title="אין עובדים במערכת" hint="המנהל מוסיף עובדים בלוח הניהול." />
       </main>
     );
   }
@@ -64,9 +64,9 @@ export default function WorkerHome() {
       <nav className="wk-actions" aria-label="פעולות">
         <BigAction title="קיבלתי סחורה" sub="סחורה הגיעה מספק" icon="package" href="/worker/receive" />
         <BigAction title="מסרתי סחורה ללקוח" sub="סחורה יצאה ללקוח" icon="truck" href="/worker/deliver" />
-        <BigAction title="דיווח על תקלה" sub="משהו נשבר, חסר או פגום" icon="alert-circle" href="/worker/fault" />
+        <BigAction title="דיווח תקלה" sub="משהו נשבר, חסר או פגום" icon="alert-circle" href="/worker/fault" />
       </nav>
-      {state.products.length === 0 ? <Hint title="אין עדיין מוצרים במלאי" /> : null}
+      {state.products.length === 0 ? <Hint title="אין מוצרים במלאי" /> : null}
       <div className="wk-who">
         <span>{worker.name}</span>
         <div className="wk-who-links">

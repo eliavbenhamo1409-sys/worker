@@ -1,0 +1,149 @@
+/* ניהול מלאי — the "מינימל" style, in light and dark. Neutral white or near-black, hairlines,
+   one deep green for "in", "done" and the primary action, and one voice for figures.
+   Modelled on the Supabase dashboard, finished the way Apple finishes: one curve, one hairline,
+   corners that nest. The colours, sizes and the digit face are tokens (tokens.css); this file
+   changes only what a token cannot. Weights stay those of the classic language: this is read
+   on a factory floor, so titles and the figure that matters keep their emphasis.
+   Every rule is scoped to [data-theme^="minimal"], so the classic style never sees it.
+   Copied byte for byte to worker/src/design/minimal.css. */
+
+/* ── Figures: codes take the whole mono; a digit anywhere else already has it from --font-sans ── */
+[data-theme^="minimal"] :is(.sa-mono, .sa-input-mono, .app-login-code .sa-input, .sa-table td.is-num, .sa-table td.is-mono, .sa-table td.is-ltr, .sa-fields dd.is-num) { font-family: var(--font-mono); }
+[data-theme^="minimal"] .sa-stat-value { font-size: 28px; line-height: 34px; letter-spacing: 0; }
+@media (max-width: 600px) { [data-theme^="minimal"] .sa-stat-value { font-size: 24px; line-height: 30px; } }
+[data-theme^="minimal"] .sa-table .sa-stock { font-weight: 500; }
+/* A change reads on the number itself: up is green, down is red. */
+[data-theme^="minimal"] .sa-delta.is-up { color: var(--qty-in); }
+[data-theme^="minimal"] .sa-delta.is-down { color: var(--danger-text); }
+
+/* ── Quiet structure ──────────────────────────────────────── */
+[data-theme^="minimal"] .sa-table th, [data-theme^="minimal"] .sa-dict-head { border-bottom-color: var(--border-base); }
+[data-theme^="minimal"] .sa-badge { height: 22px; }
+
+/* ── The primary action is the one green ──────────────────── */
+[data-theme^="minimal"] .sa-btn-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+[data-theme^="minimal"] .sa-btn-primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+[data-theme^="minimal"] .wk-root .sa-btn-primary:active:not(:disabled):not(.is-blocked) { background: var(--accent-hover); border-color: var(--accent-hover); }
+[data-theme^="minimal"] .wk-photo:not(.is-quiet):not(.is-locked) { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+[data-theme^="minimal"] .wk-photo:not(.is-quiet):not(.is-locked):active { background: var(--accent-hover); border-color: var(--accent-hover); }
+/* The fill green is too dark for a 6px dot on the dark surface. */
+[data-theme="minimal-dark"] :is(.sa-dot-accent, .sa-badge-accent .sa-badge-dot) { background: var(--accent-text); }
+
+/* ── Links are ink with a quiet underline; green stays on what it means ── */
+[data-theme^="minimal"] .sa-btn-link { color: var(--text-primary); text-decoration: underline; text-decoration-color: var(--border-control); text-underline-offset: 3px; }
+[data-theme^="minimal"] .sa-btn-link:hover:not(:disabled) { text-decoration-color: currentColor; }
+[data-theme^="minimal"] .sa-btn-link:disabled { text-decoration: none; }
+[data-theme^="minimal"] :is(.sa-dict-product-name, .sa-fault-product):hover { color: var(--text-primary); text-decoration: underline; text-decoration-color: var(--border-control); text-underline-offset: 3px; }
+
+/* ── Focus and typing: the green ring Supabase draws ──────── */
+[data-theme^="minimal"] .sa-input:focus:not(.is-error) { border-color: var(--focus); box-shadow: 0 0 0 1px var(--focus); }
+/* A saved login: login.css draws the classic ink ring, later in the cascade. */
+[data-theme^="minimal"] .app-login .sa-input:-webkit-autofill:focus:not(.is-error) { box-shadow: 0 0 0 100px var(--bg-surface) inset, 0 0 0 1px var(--focus); }
+[data-theme^="minimal"] .sa-select-trigger.is-open { border-color: var(--focus); box-shadow: 0 0 0 1px var(--focus); }
+/* Inset, because the stepper clips its corners; the canvas is no change on a white control. */
+[data-theme^="minimal"] .sa-qty input:focus { background: var(--bg-surface); box-shadow: inset 0 0 0 1px var(--focus); }
+[data-theme^="minimal"] :is(input, textarea) { caret-color: var(--accent-text); }
+[data-theme^="minimal"] ::selection { background: var(--selection); }
+
+/* ── Hover: a real fill, since canvas and surface are one step apart here. A mouse only ── */
+[data-theme^="minimal"] .ag-head.is-open { background: var(--bg-hover); }
+@media (hover: hover) {
+  [data-theme^="minimal"] :is(.sa-table tbody tr.is-clickable:not(.is-selected):hover td, a.sa-stat:hover, .sa-attention-item:hover, .ag-head:hover, .sa-dict-supplier:hover) { background: var(--bg-hover); }
+  [data-theme^="minimal"] .sa-btn-secondary:hover:not(:disabled) { background: var(--bg-hover); border-color: var(--border-control); }
+  [data-theme^="minimal"] :is(.sa-attention-thumb:hover, .sa-doc-card:hover .sa-doc-thumb) { border-color: var(--border-control); }
+}
+
+/* ── Pressed: one step deeper, at once; the release fades ─── */
+[data-theme^="minimal"] :is(.sa-btn-secondary, .sa-btn-ghost, .sa-btn-danger, .sa-qty button, .sa-select-trigger, .sa-menu-item, .ag-head, .sa-dict-supplier, a.sa-stat):active:not(:disabled) { background: var(--bg-muted); transition-duration: 0ms; }
+[data-theme^="minimal"] .sa-table tbody tr.is-clickable:active td { background: var(--bg-muted); }
+[data-theme^="minimal"] :is(.sa-tab, .sa-nav-item, .sa-btn-link, .sa-dict-add, .sa-dict-product-name, .sa-fault-product):active { opacity: 0.6; }
+
+/* ── Progress: ink says where you are, green says it is done ── */
+[data-theme^="minimal"] .wk-progress-step.is-done .wk-progress-line::after { background: var(--success); }
+[data-theme^="minimal"] .sa-step.is-done .sa-step-bar { background: var(--success); }
+
+/* ── The week: two greens, today the stronger; a dimmed bar goes grey, never mint ── */
+[data-theme^="minimal"] .wk-col .wk-bar { background: var(--chart-bar); }
+[data-theme^="minimal"] .wk-col.is-today .wk-bar { background: var(--chart-today); }
+[data-theme^="minimal"] .wk.is-dim .wk-col:not(.is-active) .wk-bar { opacity: 1; background: var(--border-control); }
+
+/* ── Shell: white chrome, and a rounded grey row for where you are ── */
+[data-theme^="minimal"] .sa-sidebar, [data-theme^="minimal"] .sa-topbar { background: var(--bg-surface); }
+[data-theme^="minimal"] .sa-search .sa-input { background: var(--bg-surface); }
+[data-theme^="minimal"] .sa-nav { padding: var(--space-2); gap: 2px; }
+[data-theme^="minimal"] .sa-nav-item { height: 36px; padding-inline: var(--space-3); border-inline-start: 0; border-radius: var(--radius-md); transition: color var(--dur-1) linear, background-color var(--dur-1) linear; }
+[data-theme^="minimal"] .sa-nav-item:hover { background: var(--bg-hover); }
+[data-theme^="minimal"] .sa-nav-item.is-active { background: var(--bg-muted); }
+/* State is fill and rule, never weight: a word that changes width moves its neighbours. */
+[data-theme^="minimal"] .sa-nav-item, [data-theme^="minimal"] .sa-nav-item.is-active, [data-theme^="minimal"] .sa-tab.is-active, [data-theme^="minimal"] .sa-appearance-opt.is-active { font-weight: 500; }
+[data-theme^="minimal"] .sa-nav-foot { padding: var(--space-2); }
+
+/* Phones: the navigation is a row of tabs on a rule, as in the classic style. */
+@media (max-width: 899px) {
+  [data-theme^="minimal"] .sa-shell > .sa-sidebar > .sa-nav { padding: 0 var(--space-4); gap: var(--space-5); }
+  [data-theme^="minimal"] .sa-shell > .sa-sidebar > .sa-nav > .sa-nav-item,
+  [data-theme^="minimal"] .sa-shell > .sa-sidebar > .sa-nav > .sa-nav-item.is-active { height: 40px; padding: 0; border-radius: 0; background: none; }
+  [data-theme^="minimal"] .sa-shell > .sa-sidebar > .sa-nav-foot { padding: 0 var(--space-2); }
+  /* The name scrolls away, the tabs stay. */
+  [data-theme^="minimal"] .sa-shell > .sa-sidebar { position: sticky; top: -48px; z-index: 75; }
+}
+
+/* Long lists keep their column names, where the table needs no sideways scroll. */
+@media (min-width: 1100px) {
+  [data-theme^="minimal"] :is(.sa-table-wrap, .sa-card:has(> .sa-card-body > .sa-table-wrap), .sa-card-body:has(> .sa-table-wrap)) { overflow: clip; }
+  [data-theme^="minimal"] .sa-table th { top: var(--topbar); }
+}
+
+/* ── Corners that nest: a 12px button on the phone, 8px cards, 4px rows inside them ── */
+[data-theme^="minimal"] .wk-root { --radius-md: 8px; --radius-lg: 12px; }
+[data-theme^="minimal"] :is(.sa-modal, .sa-panel.is-card) { border-radius: var(--radius-xl); }
+@supports (corner-shape: squircle) {
+  [data-theme^="minimal"] :is(.sa-card, .sa-table-wrap, .sa-stats, .sa-modal, .sa-menu, .sa-notice, .sa-btn, .sa-input, .sa-select-trigger, .sa-qty, .sa-nav-item, .wk-actions, .wk-row, .wk-hint, .wk-photo, .wk-suggest) { corner-shape: squircle; }
+}
+/* In the dark a raised surface catches a line of light on its top edge. */
+[data-theme="minimal-dark"] :is(.sa-card, .sa-table-wrap, .sa-stats, .wk-actions) { box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.05); }
+
+/* ── Grouped list on the phone: the separator starts at the text, as on an iPhone ── */
+[data-theme^="minimal"] .sa-bigaction { position: relative; }
+[data-theme^="minimal"] .sa-bigaction + .sa-bigaction { border-top: 0; }
+[data-theme^="minimal"] .sa-bigaction + .sa-bigaction::before { content: ""; position: absolute; top: 0; inset-inline: 60px 0; height: var(--hair); background: var(--border-base); }
+
+/* Choices sit in one group, the check says which; a lone picker keeps its frame. */
+[data-theme^="minimal"] .wk-choices { gap: 0; }
+[data-theme^="minimal"] .wk-choices > .wk-ask { margin-bottom: var(--space-2); }
+[data-theme^="minimal"] .wk-choices > .wk-row { border-color: var(--border-base); }
+[data-theme^="minimal"] .wk-choices > .wk-row + .wk-row { margin-top: calc(var(--hair) * -1); border-start-start-radius: 0; border-start-end-radius: 0; }
+[data-theme^="minimal"] .wk-choices > .wk-row:has(+ .wk-row) { border-end-start-radius: 0; border-end-end-radius: 0; }
+
+/* ── Settings: a segmented control, not two underlined words ── */
+[data-theme^="minimal"] .sa-appearance-opts { gap: 2px; padding: 2px; border-radius: var(--radius-md); background: var(--bg-muted); }
+[data-theme^="minimal"] .sa-appearance-opt { height: calc(var(--control-md) - 4px); min-width: 72px; padding-inline: var(--space-3); border-bottom: 0; border-radius: calc(var(--radius-md) - 2px); transition: background-color var(--dur-2) var(--ease), color var(--dur-1) linear; }
+[data-theme^="minimal"] .sa-appearance-opt.is-active { background: var(--bg-thumb); box-shadow: 0 0 0 var(--hair) var(--border-subtle), 0 1px 2px rgba(0, 0, 0, 0.06); }
+[data-theme^="minimal"] .sa-appearance-opt:focus-visible { box-shadow: var(--focus-ring); }
+
+/* ── Motion: one curve. A press answers at once and lets go softly ── */
+[data-theme^="minimal"] :is(.sa-btn, .wk-photo) { transition: background-color var(--dur-1) linear, color var(--dur-1) linear, border-color var(--dur-1) linear, transform var(--dur-2) var(--ease); }
+[data-theme^="minimal"] :is(.sa-btn:not(:disabled):not(.is-blocked):not(.sa-btn-link), .wk-photo):active { transform: scale(0.98); transition-duration: 0ms; }
+@keyframes sa-rise { from { opacity: 0; transform: translateY(8px) scale(0.985); } }
+@keyframes sa-drop { from { opacity: 0; transform: translateY(-4px); } }
+[data-theme^="minimal"] .sa-modal { animation: sa-rise var(--dur-3) var(--ease); }
+[data-theme^="minimal"] .sa-scrim:not(.app-scrim) { animation: sa-fade var(--dur-2) linear; }
+[data-theme^="minimal"] .sa-menu { animation: sa-drop var(--dur-2) var(--ease); }
+[data-theme^="minimal"] .app-panelHost:not([data-closing]) { animation-duration: var(--dur-3); animation-timing-function: var(--ease); }
+
+/* A group opens in place, the chevron turning in time with it. */
+[data-theme^="minimal"] .ag-panel { display: grid; grid-template-rows: 1fr; animation: ag-open var(--dur-2) var(--ease); }
+[data-theme^="minimal"] .ag-panel > * { min-height: 0; overflow: hidden; }
+[data-theme^="minimal"] .ag-chev { transition: transform var(--dur-2) var(--ease); }
+@keyframes ag-open { from { grid-template-rows: 0fr; opacity: 0; } }
+
+/* The done mark draws itself once, short stroke first. Green here means it went through. */
+[data-theme^="minimal"] .wk-done-mark { color: var(--success-text); }
+[data-theme^="minimal"] .wk-done-mark polyline { stroke-dasharray: 23; stroke-dashoffset: -23; animation: wk-draw 420ms var(--ease) 120ms forwards; }
+@keyframes wk-draw { to { stroke-dashoffset: 0; } }
+
+/* The top bar's rule appears once there is something to separate. */
+@supports (animation-timeline: scroll()) {
+  @keyframes sa-edge { from { border-bottom-color: transparent; } }
+  [data-theme^="minimal"] :is(.sa-topbar, .wk-root .wk-bar) { animation: sa-edge linear both; animation-timeline: scroll(root block); animation-range: 0 16px; }
+}

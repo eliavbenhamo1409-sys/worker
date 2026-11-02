@@ -14,7 +14,7 @@ export interface BadgeProps {
 
 /** Status tag — one or two words, always with a word or icon, never colour alone. */
 export function Badge({ tone = "neutral", dot, icon, count, size = "md", className, children }: BadgeProps): ReactElement {
-  const showDot = dot !== undefined ? dot : tone !== "inverse" && !count && !icon && tone !== "neutral";
+  const showDot = dot !== undefined ? dot : tone !== "inverse" && !count && !icon;
   return (
     <span className={cx("sa-badge", `sa-badge-${tone}`, count && "sa-badge-count", size === "lg" && "sa-badge-lg", className)}>
       {showDot ? <span className="sa-badge-dot" aria-hidden="true" /> : null}

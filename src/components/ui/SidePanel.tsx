@@ -44,7 +44,7 @@ export function SidePanel({ title, eyebrow, subtitle, tabs, tab, defaultTab, onT
         </div>
         <div className="flex shrink-0 gap-[var(--space-1)]">
           {headActions}
-          <Button variant="ghost" size="sm" iconOnly icon="x" aria-label="סגור" onClick={onClose} />
+          <Button variant="ghost" size="sm" iconOnly icon="x" aria-label="סגירה" onClick={onClose} />
         </div>
       </div>
       {tabs && tabs.length > 0 ? (

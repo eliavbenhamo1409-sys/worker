@@ -28,7 +28,7 @@ function cx(...parts: (string | false | null | undefined)[]): string {
 export function TopBar({
   actions,
   onSearch,
-  searchPlaceholder = "חיפוש מוצר, מק״ט או ספק",
+  searchPlaceholder = 'חיפוש לפי מוצר, מק"ט או ספק',
   className,
   searchValue,
   onSearchChange,

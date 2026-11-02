@@ -83,7 +83,7 @@ export default function FaultPage() {
 
   const lines: SummaryLine[] = p && withQty ? [{ key: "q", title: p.name, qty, unit: p.unit }] : [];
   if (step === "done" && done) {
-    return <Done title="הדיווח נשלח למנהל" sub={photoError ? "התמונה לא הועלתה, התקלה דווחה" : undefined} lines={lines.map((l) => ({ ...l, sub: "ייגרע מהמלאי כפגום" }))} />;
+    return <Done title="הדיווח הועבר למנהל" sub={photoError ? "התמונה לא הועלתה, התקלה דווחה" : undefined} lines={lines.map((l) => ({ ...l, sub: "ייגרע מהמלאי כפגום" }))} />;
   }
 
   const back = () => (step === "what" ? router.push("/worker") : go("what"));
@@ -91,7 +91,7 @@ export default function FaultPage() {
   if (step === "what") {
     return (
       <Flow
-        flow="דיווח על תקלה"
+        flow="דיווח תקלה"
         steps={STEPS}
         current="what"
         dir={dir}
@@ -102,7 +102,7 @@ export default function FaultPage() {
           onClick: () => go("summary"),
           blocked: described ? null : { reason: "חסר תיאור התקלה", onTap: () => pointAt("what") },
         }}
-        overlay={pick ? <Picker title="מוצר קשור" items={items} placeholder="שם, מק״ט או ברקוד…" onPick={(id) => { setProductId(id); setPick(false); }} onClose={() => setPick(false)} emptyTitle="לא נמצא מוצר" /> : null}
+        overlay={pick ? <Picker title="מוצר קשור" items={items} placeholder='חיפוש לפי שם, מק"ט או ברקוד' onPick={(id) => { setProductId(id); setPick(false); }} onClose={() => setPick(false)} emptyTitle="לא נמצאו מוצרים" /> : null}
       >
         <Section id="what" title="תיאור התקלה" need="required" done={described}>
           <Input size="touch" multiline aria-label="תיאור התקלה" placeholder="לדוגמה: לוחות הגיעו רטובים" value={description} onChange={(e) => setDescription(e.target.value)} />
@@ -145,14 +145,14 @@ export default function FaultPage() {
 
   return (
     <Flow
-      flow="דיווח על תקלה"
+      flow="דיווח תקלה"
       steps={STEPS}
       current="summary"
       dir={dir}
       onBack={back}
-      title="בדיקה ושליחה"
+      title="בדיקה ואישור"
       lead="עדיין לא נשלח כלום"
-      foot={{ label: "שליחת הדיווח למנהל", onClick: submit, busy: busy ? "שולח את הדיווח" : null }}
+      foot={{ label: "העברה למנהל", onClick: submit, busy: busy ? "שולח את הדיווח" : null }}
     >
       {error ? <Hint tone="attention" title="לא נשלח. לבדוק אינטרנט וללחוץ שוב." /> : null}
       <Summary

@@ -26,7 +26,7 @@ export function Notice({ tone = "neutral", title, action, onAction, onDismiss, c
         {children ? <p className="sa-notice-text">{children}</p> : null}
       </div>
       {action ? <Button variant="link" onClick={onAction}>{action}</Button> : null}
-      {onDismiss ? <Button variant="ghost" size="sm" iconOnly icon="x" aria-label="סגור" onClick={onDismiss} /> : null}
+      {onDismiss ? <Button variant="ghost" size="sm" iconOnly icon="x" aria-label="סגירה" onClick={onDismiss} /> : null}
     </div>
   );
 }

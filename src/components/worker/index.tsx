@@ -294,7 +294,7 @@ export function productPick(p: Product, stock = false): PickItem {
   };
 }
 
-export function Picker({ title, context, items, onPick, onClose, placeholder = "חיפוש…", extra, emptyTitle = "אין פריטים" }: {
+export function Picker({ title, context, items, onPick, onClose, placeholder = "חיפוש לפי שם", extra, emptyTitle = "לא נמצאו תוצאות" }: {
   title: string;
   /** What the worker is looking for, e.g. the wording on the receipt. */
   context?: string;

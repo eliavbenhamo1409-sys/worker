@@ -24,28 +24,28 @@ type Line = { id: string; productId: string | null; qty: number; hint?: string; 
 const ORDER: readonly Step[] = ["start", "lines", "summary", "done"];
 const STEPS = [
   { key: "start", label: "לקוח" },
-  { key: "lines", label: "פריטים" },
+  { key: "lines", label: "שורות" },
   { key: "summary", label: "אישור" },
 ];
 const newLine = (partial: Partial<Line> = {}): Line => ({ id: Math.random().toString(36).slice(2), productId: null, qty: 1, ...partial });
 const unanswered = (l: Line) => !!l.hint && !l.productId && !l.route;
 const routedTitle = (l: Line) => l.proposedName ?? l.hint ?? "";
-const routedSub = (l: Line) => (l.route === "new" ? "מוצר חדש, מחכה לאישור מנהל" : "הועבר למנהל לטיפול");
+const routedSub = (l: Line) => (l.route === "new" ? "מוצר חדש, אצל המנהל" : "אצל המנהל");
 
 /** The worker asks to add a product to the warehouse dictionary; the manager approves it later. */
 function AddToDictionary({ initialName, initialNote, onSubmit, onClose }: { initialName: string; initialNote: string; onSubmit: (name: string, note: string) => void; onClose: () => void }) {
   const [name, setName] = useState(initialName);
   const [note, setNote] = useState(initialNote);
   return (
-    <div className="wk-sheet" role="dialog" aria-modal="true" aria-label="הוספה למילון המחסן">
+    <div className="wk-sheet" role="dialog" aria-modal="true" aria-label="מוצר חדש">
       <div className="wk-sheet-inner">
-        <StepHead title="הוספה למילון המחסן" onBack={onClose} />
+        <StepHead title="מוצר חדש" onBack={onClose} />
         <p className="wk-sheet-lead">המנהל יאשר לפני שהכמות תרד מהמלאי</p>
         <div className="wk-sheet-form">
           <Input id="new-product" size="touch" label="שם המוצר" aria-required placeholder="לדוגמה: מדף אלון 28 מ״מ" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
           <Input size="touch" label="הערה למנהל" optional placeholder="מידה, צבע" value={note} onChange={(e) => setNote(e.target.value)} autoComplete="off" />
           <div className="wk-sheet-actions">
-            <Cta label="שליחה לאישור מנהל" onClick={() => onSubmit(name.trim(), note.trim())} blocked={name.trim() ? null : { reason: "חסר שם מוצר", onTap: () => document.getElementById("new-product")?.focus() }} />
+            <Cta label="העברה למנהל" onClick={() => onSubmit(name.trim(), note.trim())} blocked={name.trim() ? null : { reason: "חסר שם מוצר", onTap: () => document.getElementById("new-product")?.focus() }} />
           </div>
         </div>
       </div>
@@ -188,7 +188,7 @@ export default function DeliverPage() {
   if (step === "done" && result) {
     return (
       <Done
-        title={result.issued.length ? "המסירה נשמרה" : "נשלח למנהל"}
+        title={result.issued.length ? "ההוצאה נשמרה" : "הועבר למנהל"}
         sub={`ללקוח: ${name}`}
         lines={[...result.issued, ...result.routed]}
       />
@@ -210,11 +210,11 @@ export default function DeliverPage() {
           title="בחירת מוצר מהמחסן"
           context={pickContext}
           items={productItems}
-          placeholder="שם, מק״ט או ברקוד…"
+          placeholder='חיפוש לפי שם, מק"ט או ברקוד'
           onPick={(id) => { patch(pickFor, { productId: id, route: undefined, proposedName: undefined, workerNote: undefined }); setPickFor(null); }}
           onClose={() => setPickFor(null)}
-          emptyTitle="לא נמצא מוצר"
-          extra={{ label: "הוספה למילון המחסן", onClick: () => { setAddFor(pickFor); setPickFor(null); } }}
+          emptyTitle="לא נמצאו מוצרים"
+          extra={{ label: "מוצר חדש", onClick: () => { setAddFor(pickFor); setPickFor(null); } }}
         />
       ) : null}
       {addFor && addLine ? (
@@ -232,7 +232,7 @@ export default function DeliverPage() {
   if (step === "start") {
     return (
       <Flow
-        flow="מסירת סחורה ללקוח"
+        flow="הוצאת סחורה ללקוח"
         steps={STEPS}
         current="start"
         dir={dir}
@@ -240,7 +240,7 @@ export default function DeliverPage() {
         title="למי מסרת את הסחורה?"
         overlay={overlay}
         foot={{
-          label: photo ? "המשך לפריטים" : "המשך בלי קבלה",
+          label: photo ? "המשך לשורות" : "המשך בלי קבלה",
           onClick: () => { startUpload(); go("lines"); },
           blocked: name ? null : { reason: "חסר שם לקוח", onTap: () => pointAt("customer") },
         }}
@@ -253,7 +253,7 @@ export default function DeliverPage() {
             </div>
           ) : null}
         </Section>
-        <Section id="receipt" title="צילום הקבלה" need="optional" done={!!photo} lead="הפריטים יתמלאו לבד">
+        <Section id="receipt" title="צילום הקבלה" need="optional" done={!!photo} lead="השורות יתמלאו לבד">
           {!name ? (
             <button type="button" className="wk-photo is-locked" onClick={() => pointAt("customer")}>קודם שם לקוח</button>
           ) : photo ? (
@@ -282,11 +282,11 @@ export default function DeliverPage() {
     const firstOpen = lines.find(unanswered);
     const lead = scanned && open === 0 ? "לבדוק מוצרים וכמויות" : undefined;
     const blocked = firstOpen
-      ? { reason: open === 1 ? "פריט אחד בלי תשובה" : `${open} פריטים בלי תשובה`, onTap: () => pointAt(`line-${firstOpen.id}`) }
+      ? { reason: open === 1 ? "שורה אחת בלי תשובה" : `${open} שורות בלי תשובה`, onTap: () => pointAt(`line-${firstOpen.id}`) }
       : valid.length + routed.length === 0 ? { reason: "לא נבחר מוצר", onTap: () => pointAt(`line-${lines[0].id}`) } : null;
     return (
       <Flow
-        flow={`מסירה ל${name}`}
+        flow={`הוצאה ל${name}`}
         steps={STEPS}
         current="lines"
         dir={dir}
@@ -305,15 +305,15 @@ export default function DeliverPage() {
             return (
               <article key={l.id} id={`line-${l.id}`} className="wk-line">
                 <div className="wk-line-head">
-                  <span className="wk-line-n">פריט {i + 1}</span>
+                  <span className="wk-line-n">שורה {i + 1}</span>
                   <span className="wk-line-state">
                     {unanswered(l) ? <Badge tone="warning">צריך תשובה</Badge> : over ? <Badge tone="warning">מעל המלאי</Badge> : p ? <Badge tone="success">מוכן</Badge> : l.route ? <Badge tone="neutral">אצל המנהל</Badge> : null}
                   </span>
-                  {lines.length > 1 ? <button type="button" className="wk-line-remove" aria-label={`הסרת פריט ${i + 1}`} onClick={() => removeLine(l.id)}>הסרה</button> : null}
+                  {lines.length > 1 ? <button type="button" className="wk-line-remove" aria-label={`הסרת שורה ${i + 1}`} onClick={() => removeLine(l.id)}>הסרה</button> : null}
                 </div>
                 {unknown ? (
                   <div className="wk-receipt">
-                    <span className="wk-receipt-k">{l.scanned ? "כתוב בקבלה" : "פריט"}</span>
+                    <span className="wk-receipt-k">{l.scanned ? "כתוב בקבלה" : "שורה"}</span>
                     <span className="wk-receipt-name">{l.hint}</span>
                   </div>
                 ) : (
@@ -333,14 +333,14 @@ export default function DeliverPage() {
                       return match ? <Row key={c.productId} title={match.name} sub={c.alias && c.alias !== match.name ? `במילון: ${c.alias}` : match.sku} onClick={() => patch(l.id, { productId: match.id })} /> : null;
                     })}
                     <Row title={l.candidates?.length ? "זה מוצר אחר מהמחסן" : "יש כזה במחסן"} end={<Icon name="chevron-left" size={20} />} onClick={() => setPickFor(l.id)} />
-                    <Row title="לטיפול מנהל" end={<Icon name="user" size={20} />} onClick={() => patch(l.id, { route: "manager" })} />
-                    <Row title="אין כזה במחסן, להוסיף" end={<Icon name="chevron-left" size={20} />} onClick={() => setAddFor(l.id)} />
+                    <Row title="העברה למנהל" end={<Icon name="user" size={20} />} onClick={() => patch(l.id, { route: "manager" })} />
+                    <Row title="מוצר חדש" end={<Icon name="chevron-left" size={20} />} onClick={() => setAddFor(l.id)} />
                   </div>
                 ) : null}
                 {!p && l.route ? (
                   <div className="wk-routed">
                     <span className="wk-routed-text">
-                      {l.route === "new" ? "יתווסף למילון המחסן אחרי אישור מנהל" : "יעבור למנהל לטיפול"}
+                      {l.route === "new" ? "מוצר חדש, אצל המנהל" : "אצל המנהל"}
                       {l.proposedName && l.proposedName !== l.hint ? <span className="wk-row-sub">{l.proposedName}</span> : null}
                     </span>
                     <button type="button" className="wk-textlink" onClick={() => patch(l.id, { route: undefined, proposedName: undefined, workerNote: undefined })}>שינוי</button>
@@ -349,7 +349,7 @@ export default function DeliverPage() {
                 {p ? (
                   <div className={cx("wk-status", !over && "is-muted")}>
                     {over ? <Dot tone="warning" /> : null}
-                    <span>במלאי <span className="sa-num">{fmtQty(p.qty)}</span> {p.unit}{over ? ", פחות ממה שמסרת" : ""}</span>
+                    <span>במלאי <span className="sa-num">{fmtQty(p.qty)}</span> {p.unit}{over ? ", הכמות גדולה מהמלאי" : ""}</span>
                   </div>
                 ) : null}
                 <div className="wk-qty-row">
@@ -360,7 +360,7 @@ export default function DeliverPage() {
               </article>
             );
           })}
-          <Row quiet title="הוספת פריט" onClick={() => setLines((ls) => [...ls, newLine()])} />
+          <Row quiet title="הוספת שורה" onClick={() => setLines((ls) => [...ls, newLine()])} />
         </div>
         {services.length ? (
           <section className="wk-section">
@@ -380,7 +380,7 @@ export default function DeliverPage() {
   const total = valid.length + routed.length;
   return (
     <Flow
-      flow={`מסירה ל${name}`}
+      flow={`הוצאה ל${name}`}
       steps={STEPS}
       current="summary"
       dir={dir}
@@ -388,12 +388,12 @@ export default function DeliverPage() {
       title="בדיקה ואישור"
       lead="עדיין לא נשמר כלום"
       overlay={overlay}
-      foot={{ label: valid.length ? "אישור המסירה" : "שליחה לטיפול מנהל", onClick: submit, busy: busy ? (total > 1 ? `שומר ${Math.min(progress + 1, total)} מתוך ${total}` : "שומר") : null }}
+      foot={{ label: valid.length ? "אישור ההוצאה" : "העברה למנהל", onClick: submit, busy: busy ? (total > 1 ? `שומר ${Math.min(progress + 1, total)} מתוך ${total}` : "שומר") : null }}
     >
       {error ? <Hint tone="attention" title="לא נשמר. לבדוק אינטרנט וללחוץ שוב." /> : null}
-      {anyOver ? <Hint tone="attention" title="כמות גדולה מהמלאי" /> : null}
+      {anyOver ? <Hint tone="attention" title="הכמות גדולה מהמלאי" /> : null}
       <Summary
-        heading="פרטי המסירה"
+        heading="פרטי ההוצאה"
         meta={[
           { k: "לקוח", v: name },
           ...(photo ? [{ k: "קבלה", v: "צולמה" }] : []),
@@ -402,7 +402,7 @@ export default function DeliverPage() {
         lines={[]}
       />
       <Summary heading="יורד מהמלאי" lines={issuedLines} />
-      <Summary heading="עובר למנהל" lines={routedLines} />
+      <Summary heading="יועבר למנהל" lines={routedLines} />
     </Flow>
   );
 }

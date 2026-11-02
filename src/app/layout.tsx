@@ -7,7 +7,7 @@ import { ThemeProvider, THEME_BOOT_SCRIPT } from "@/lib/theme";
 
 export const metadata: Metadata = {
   title: "מחסן · אפליקציית עובד",
-  description: "קליטת סחורה, מסירה ללקוח ודיווח תקלות",
+  description: "קליטת סחורה, הוצאת סחורה ודיווח תקלות",
 };
 
 export const viewport: Viewport = {

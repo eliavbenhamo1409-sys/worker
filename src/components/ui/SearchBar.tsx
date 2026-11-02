@@ -17,7 +17,7 @@ export interface SearchBarProps {
 
 /** The one global search (top bar) — also the local table filter with `kbd={false}`. */
 export function SearchBar({
-  value: valueProp, defaultValue, onChange, onSubmit, placeholder = 'חיפוש מוצר, מק"ט, ספק…', kbd = "/", className,
+  value: valueProp, defaultValue, onChange, onSubmit, placeholder = 'חיפוש לפי מוצר, מק"ט או ספק', kbd = "/", className,
 }: SearchBarProps): ReactElement {
   const [valueState, setValueState] = useState(defaultValue ?? "");
   const value = valueProp !== undefined ? valueProp : valueState;
@@ -73,7 +73,7 @@ export function SearchBar({
           <button
             type="button"
             className="sa-btn sa-btn-ghost sa-btn-sm sa-btn-icon sa-control-end"
-            aria-label="נקה"
+            aria-label="ניקוי"
             onClick={() => { set(""); inputRef.current?.focus(); }}
           >
             <Icon name="x" size={14} />

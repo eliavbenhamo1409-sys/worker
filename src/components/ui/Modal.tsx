@@ -100,14 +100,15 @@ export function Modal({ title, tone, confirmLabel = "אישור", cancelLabel = 
       >
         <div className="sa-modal-head">
           <h2 className="sa-modal-title" id={titleId}>{title}</h2>
-          <Button variant="ghost" size="sm" iconOnly icon="x" aria-label="סגור" onClick={onClose} disabled={busy} />
+          <Button variant="ghost" size="sm" iconOnly icon="x" aria-label="סגירה" onClick={onClose} disabled={busy} />
         </div>
         <div className="sa-modal-body" id={bodyId}>{children}</div>
         <div className={cx("sa-modal-foot", footerStart ? "is-split" : undefined)}>
           {footerStart ?? null}
           <div style={{ display: "flex", gap: "var(--space-2)" }}>
-            <Button variant="secondary" onClick={onClose} disabled={busy}>{cancelLabel}</Button>
-            <Button variant={tone === "danger" ? "danger" : "primary"} onClick={onConfirm} isLoading={busy} data-autofocus="true">{confirmLabel}</Button>
+            {/* On a destructive choice the keyboard starts on cancel, so a stray Enter deletes nothing. */}
+            <Button variant="secondary" onClick={onClose} disabled={busy} data-autofocus={tone === "danger" ? "true" : undefined}>{cancelLabel}</Button>
+            <Button variant={tone === "danger" ? "danger" : "primary"} onClick={onConfirm} isLoading={busy} data-autofocus={tone === "danger" ? undefined : "true"}>{confirmLabel}</Button>
           </div>
         </div>
       </div>
