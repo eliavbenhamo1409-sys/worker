@@ -64,7 +64,7 @@ export function Attention({ items, className }: AttentionProps) {
             {it.onDismiss ? (
               <div className="sa-attention-actions">
                 {it.dismissLabel ? (
-                  <Button variant="secondary" size="sm" onClick={it.onDismiss}>{it.dismissLabel}</Button>
+                  <Button variant="secondary" size="sm" icon="check" onClick={it.onDismiss}>{it.dismissLabel}</Button>
                 ) : (
                   <Button variant="ghost" size="sm" iconOnly icon="x" title="הסר מהרשימה" onClick={it.onDismiss} />
                 )}

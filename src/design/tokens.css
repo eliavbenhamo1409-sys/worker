@@ -26,6 +26,7 @@
   --success: #2f6b4f;
   --on-success: #ffffff;
   --success-text: #2a6047;
+  --qty-in: #1a7f4e;
   --warning: #a66a12;
   --on-warning: #ffffff;
   --warning-text: #855410;
@@ -64,6 +65,7 @@
   --success: #7dba9a;
   --on-success: #0f2419;
   --success-text: #8cc7a8;
+  --qty-in: #8cc7a8;
   --warning: #d9a85b;
   --on-warning: #241803;
   --warning-text: #e0b673;

@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 import { THEMES, useTheme } from "@/lib/theme";
 import { Button } from "./Button";
 import { cx } from "./cx";
+import { Icon } from "./Icon";
 
 export interface ThemeSettingsButtonProps {
   variant?: "nav" | "text";
@@ -37,6 +38,7 @@ export function ThemeSettingsButton({ variant = "nav", className }: ThemeSetting
         aria-haspopup="dialog"
         aria-expanded={open}
       >
+        {variant === "nav" ? <Icon name="settings" size={16} /> : null}
         <span>הגדרות</span>
       </button>
       {open ? <SettingsDialog onClose={close} /> : null}

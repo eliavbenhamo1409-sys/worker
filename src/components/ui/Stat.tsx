@@ -3,9 +3,12 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Dot } from "./Dot";
+import { Icon, type IconName } from "./Icon";
 
 export interface StatProps {
   label: string;
+  /** Takes the tone's colour and stands in for its dot. */
+  icon?: IconName;
   value: string | number;
   unit?: string;
   delta?: number;
@@ -21,8 +24,10 @@ export interface StatProps {
 
 const cx = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(" ");
 
+const ICON_TONE = { warning: "text-warning-text", danger: "text-danger-text" } as const;
+
 /** KPI tile — three per overview. */
-export function Stat({ label, value, unit, delta, deltaUnit, deltaGood = true, note, tone, href, className }: StatProps) {
+export function Stat({ label, icon, value, unit, delta, deltaUnit, deltaGood = true, note, tone, href, className }: StatProps) {
   const dir = delta == null ? null : delta > 0 ? "up" : delta < 0 ? "down" : "flat";
   const good = dir === "up" ? deltaGood : dir === "down" ? !deltaGood : null;
   // A unit that starts with % or a Latin word glues onto the number; a Hebrew unit sits beside it.
@@ -31,7 +36,7 @@ export function Stat({ label, value, unit, delta, deltaUnit, deltaGood = true, n
   const body = (
     <>
       <div className="sa-stat-label">
-        {tone ? <Dot tone={tone} /> : null}
+        {icon ? <Icon name={icon} size={16} className={tone ? ICON_TONE[tone] : "text-ink-3"} /> : tone ? <Dot tone={tone} /> : null}
         {label}
       </div>
       <div className="sa-stat-value">

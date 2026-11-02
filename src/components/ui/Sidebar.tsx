@@ -1,6 +1,7 @@
 "use client";
 
 import type * as React from "react";
+import type { IconName } from "./Icon";
 import { NavItem } from "./NavItem";
 
 export interface SidebarItem {
@@ -8,6 +9,7 @@ export interface SidebarItem {
   label: string;
   count?: number;
   href?: string;
+  icon?: IconName;
 }
 
 export interface SidebarProps {
@@ -51,6 +53,7 @@ export function Sidebar({
             active={it.key === active}
             count={it.count}
             href={it.href}
+            icon={it.icon}
             onClick={
               onNavigate
                 ? (e) => {

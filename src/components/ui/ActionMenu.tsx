@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { Button, type ButtonProps } from "./Button";
+import { Icon, type IconName } from "./Icon";
 
 export interface ActionItem {
   key: string;
   label: string;
+  icon?: IconName;
 }
 
 export interface ActionMenuProps {
@@ -13,6 +15,8 @@ export interface ActionMenuProps {
   onSelect?: (key: string) => void;
   label?: string;
   variant?: ButtonProps["variant"];
+  /** Leads the button and replaces its chevron. */
+  icon?: IconName;
   open?: boolean;
   defaultOpen?: boolean;
   inline?: boolean;
@@ -21,9 +25,9 @@ export interface ActionMenuProps {
 }
 
 export const DEFAULT_ACTIONS: ActionItem[] = [
-  { key: "receive", label: "קליטת סחורה" },
-  { key: "issue", label: "הוצאת סחורה" },
-  { key: "fault", label: "דיווח תקלה" },
+  { key: "receive", label: "קליטת סחורה", icon: "arrow-down-left" },
+  { key: "issue", label: "הוצאת סחורה", icon: "arrow-up-right" },
+  { key: "fault", label: "דיווח תקלה", icon: "tool" },
 ];
 
 function cx(...parts: (string | false | null | undefined)[]): string {
@@ -36,6 +40,7 @@ export function ActionMenu({
   onSelect,
   label = "פעולות",
   variant = "primary",
+  icon,
   open: openProp,
   defaultOpen = false,
   inline,
@@ -135,7 +140,8 @@ export function ActionMenu({
       <Button
         ref={triggerRef}
         variant={variant}
-        iconEnd="chevron-down"
+        icon={icon}
+        iconEnd={icon ? undefined : "chevron-down"}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
@@ -162,6 +168,7 @@ export function ActionMenu({
                 onMouseEnter={() => setActive(i)}
                 onClick={() => select(a.key)}
               >
+                {a.icon ? <Icon name={a.icon} size={16} /> : null}
                 {a.label}
               </button>
             ))}

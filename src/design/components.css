@@ -1,10 +1,10 @@
 /* ניהול מלאי — component stylesheet (RTL-first, logical properties). Prefix: sa-
    The rules of the language:
    - Ink carries the page. The primary button is graphite, never a colour.
-   - Colour means state and only state, as a small dot beside a word.
+   - Colour is rare and means something: a small dot beside a word, or the number itself.
    - Thin rules build structure. Shadow exists only on things that truly float.
    - No tiles: no coloured squares behind icons, no initials in discs, no letter marks, no pills.
-   - Icons are thin, bare and rare. Words come first.
+   - Icons are thin and bare, beside the word, where they help the eye find it. Words stay.
    - Weight stops at 600 for titles. Size and spacing do the rest.
    Copied byte for byte to worker/src/design/components.css. */
 
@@ -116,6 +116,7 @@ svg[stroke="currentColor"] { stroke-width: 1.5; }
 .sa-menu-item:hover, .sa-menu-item.is-active { background: var(--bg-muted); }
 .sa-menu-item.is-selected { font-weight: 600; }
 .sa-menu-item.is-all { color: var(--text-secondary); }
+.sa-menu-item > svg { flex-shrink: 0; color: var(--text-tertiary); }
 .sa-menu-item .sa-menu-check { margin-inline-start: auto; width: 14px; height: 14px; color: var(--text-primary); }
 .sa-menu-item-sub { display: block; font-size: 13px; line-height: 18px; color: var(--text-tertiary); font-weight: 400; }
 .sa-menu-empty { padding: var(--space-4) var(--space-3); font-size: 13px; color: var(--text-tertiary); text-align: center; }
@@ -248,13 +249,21 @@ a.sa-stat:focus-visible { box-shadow: inset 0 0 0 1.5px var(--focus); }
 .sa-timeline-title { font-size: 14px; line-height: 20px; font-weight: 500; margin: 0; }
 .sa-timeline-meta { font-size: 13px; line-height: 18px; color: var(--text-tertiary); margin: 0; }
 .sa-timeline-qty { font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate; white-space: nowrap; }
+.sa-timeline-item.is-in .sa-timeline-qty { color: var(--qty-in); }
+.sa-timeline-item.is-out .sa-timeline-qty { color: var(--danger-text); }
 .sa-timeline-detail { margin-top: var(--space-2); display: flex; flex-direction: column; gap: var(--space-2); }
 .sa-timeline-detail .sa-fault-photo { margin-top: 0; }
 .sa-timeline-note { font-size: 14px; line-height: 20px; color: var(--text-secondary); margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .sa-timeline-status { display: flex; align-items: center; gap: var(--space-2); }
 
-/* ── Movement: the word, nothing else ───────────────────────── */
-.sa-move { display: inline-flex; align-items: center; font-size: 14px; line-height: 20px; color: var(--text-secondary); white-space: nowrap; }
+/* ── Movement: a small grey icon and the word; a fault's icon alone takes colour ── */
+.sa-move { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; line-height: 20px; color: var(--text-secondary); white-space: nowrap; }
+.sa-move svg { flex-shrink: 0; color: var(--text-tertiary); }
+.sa-move.is-fault svg { color: var(--danger-text); }
+/* A movement's quantity: goods in green, goods out red, the rest ink. */
+.sa-signed { font-weight: 500; }
+.sa-signed.is-in { color: var(--qty-in); }
+.sa-signed.is-out { color: var(--danger-text); }
 
 /* ── Sidebar / NavItem / TopBar ─────────────────────────────── */
 .sa-shell { display: flex; min-height: 100%; background: var(--bg-canvas); }
@@ -266,6 +275,7 @@ a.sa-stat:focus-visible { box-shadow: inset 0 0 0 1.5px var(--focus); }
 .sa-nav-item:hover { color: var(--text-primary); }
 .sa-nav-item.is-active { color: var(--text-primary); font-weight: 600; border-inline-start-color: var(--border-inverse); }
 .sa-nav-item:focus-visible { box-shadow: inset 0 0 0 1.5px var(--focus); }
+.sa-nav-item > svg { flex-shrink: 0; }
 .sa-nav-item .sa-badge { margin-inline-start: auto; font-weight: 400; }
 .sa-nav-foot { padding: var(--space-3) 0; display: flex; flex-direction: column; }
 .sa-topbar { position: sticky; top: 0; z-index: 70; height: var(--topbar); background: var(--bg-canvas); border-bottom: 1px solid var(--border-base); display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding-inline: max(var(--space-10), calc((100% - var(--content)) / 2 + var(--space-10))); }
