@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ThemeSettingsButton } from "@/components/ui/ThemeSettings";
 import { useData } from "@/lib/store";
@@ -27,7 +26,7 @@ export default function WorkerHome() {
         <h1 className="wk-greet">אין חיבור למערכת</h1>
         <p className="wk-sub">צריך לבדוק שיש אינטרנט.</p>
         <div className="wk-stack">
-          <Cta label="ניסיון נוסף" icon="refresh" busy={retrying ? "מתחבר למערכת" : null} onClick={retry} />
+          <Cta label="ניסיון נוסף" busy={retrying ? "מתחבר למערכת" : null} onClick={retry} />
         </div>
       </main>
     );
@@ -37,7 +36,7 @@ export default function WorkerHome() {
     return (
       <main className="wk-home">
         <SystemBar live={state.live} />
-        <EmptyState icon="user" title="עדיין אין עובדים במערכת" hint="המנהל מוסיף עובדים בלוח הניהול." />
+        <EmptyState title="עדיין אין עובדים במערכת" hint="המנהל מוסיף עובדים בלוח הניהול." />
       </main>
     );
   }
@@ -50,7 +49,7 @@ export default function WorkerHome() {
         <p className="wk-sub">בוחרים פעם אחת, והטלפון זוכר.</p>
         <div className="wk-stack">
           {workers.map((w) => (
-            <Row key={w.id} title={<><Avatar name={w.name} />{w.name}</>} sub={w.role} end={null} onClick={() => choose(w.id)} />
+            <Row key={w.id} title={w.name} sub={w.role} end={null} onClick={() => choose(w.id)} />
           ))}
         </div>
       </main>
@@ -62,17 +61,19 @@ export default function WorkerHome() {
       <SystemBar live={state.live} />
       <h1 className="wk-greet">שלום, {worker.name}</h1>
       <p className="wk-sub">מה לרשום עכשיו?</p>
-      <div className="wk-stack">
-        <BigAction title="קיבלתי סחורה" sub="סחורה הגיעה מספק" icon="arrow-down-left" tone="success" href="/worker/receive" />
-        <BigAction title="מסרתי סחורה ללקוח" sub="סחורה יצאה ללקוח" icon="arrow-up-right" tone="accent" href="/worker/deliver" />
-        <BigAction title="דיווח על תקלה" sub="משהו נשבר, חסר או פגום" icon="alert-circle" tone="neutral" href="/worker/fault" />
-      </div>
+      <nav className="wk-actions" aria-label="פעולות">
+        <BigAction title="קיבלתי סחורה" sub="סחורה הגיעה מספק" icon="package" href="/worker/receive" />
+        <BigAction title="מסרתי סחורה ללקוח" sub="סחורה יצאה ללקוח" icon="truck" href="/worker/deliver" />
+        <BigAction title="דיווח על תקלה" sub="משהו נשבר, חסר או פגום" icon="alert-circle" href="/worker/fault" />
+      </nav>
       {state.products.length === 0 ? <Hint title="אין עדיין מוצרים במלאי" /> : null}
       <div className="wk-who">
-        <span>מחובר בתור {worker.name}</span>
-        <button type="button" className="wk-textlink" onClick={() => choose(null)}>החלפת עובד</button>
+        <span>{worker.name}</span>
+        <div className="wk-who-links">
+          <button type="button" className="wk-textlink" onClick={() => choose(null)}>החלפת עובד</button>
+          <ThemeSettingsButton variant="text" />
+        </div>
       </div>
-      <ThemeSettingsButton variant="touch" />
     </main>
   );
 }

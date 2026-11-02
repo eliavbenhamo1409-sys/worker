@@ -6,13 +6,12 @@ import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { Input } from "@/components/ui/Input";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
-import { cx } from "@/components/ui/cx";
 import { useData, type Product } from "@/lib/store";
 import { useCurrentWorker, useReceiptUpload } from "@/lib/worker-store";
 import type { ScannedLine } from "@/lib/worker/ocr";
 import { useDocumentScan, type ReadLine } from "@/lib/worker/scan";
 import { buildDictionary, matchLine, type Candidate } from "@/lib/worker/match";
-import { Boot, CameraButton, Cta, Done, Flow, Hint, Picker, Row, Section, StepHead, Summary, pointAt, useSteps, type PickItem, type SummaryLine } from "@/components/worker";
+import { Boot, CameraButton, Cta, Done, Flow, Hint, Picker, Row, Section, StepHead, Summary, pointAt, productPick, useSteps, type PickItem, type SummaryLine } from "@/components/worker";
 import { Scanner } from "@/components/worker/Scanner";
 
 type Step = "start" | "lines" | "summary" | "done";
@@ -62,10 +61,10 @@ function AddSupplier({ onSubmit, onClose }: { onSubmit: (name: string) => Promis
       <div className="wk-sheet-inner">
         <StepHead title="הוספת ספק חדש" onBack={onClose} />
         <div className="wk-sheet-form">
-          <Input id="new-supplier" size="touch" label="שם הספק" required placeholder="לדוגמה: עצי הגליל" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
-          {failed ? <Hint tone="attention" title="לא נשמר. צריך לבדוק אינטרנט ולנסות שוב." /> : null}
+          <Input id="new-supplier" size="touch" label="שם הספק" aria-required placeholder="לדוגמה: עצי הגליל" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+          {failed ? <Hint tone="attention" title="לא נשמר. לבדוק אינטרנט ולנסות שוב." /> : null}
           <div className="wk-sheet-actions">
-            <Cta label="הוספת הספק" icon="check" onClick={save} busy={busy ? "מוסיף את הספק" : null} blocked={name.trim() ? null : { reason: "חסר שם ספק", onTap: () => document.getElementById("new-supplier")?.focus() }} />
+            <Cta label="הוספת הספק" onClick={save} busy={busy ? "מוסיף את הספק" : null} blocked={name.trim() ? null : { reason: "חסר שם ספק", onTap: () => document.getElementById("new-supplier")?.focus() }} />
           </div>
         </div>
       </div>
@@ -109,10 +108,7 @@ export default function ReceivePage() {
   const supplier = state.suppliers.find((s) => s.id === supplierId);
 
   const supplierItems = useMemo<PickItem[]>(() => state.suppliers.map((s) => ({ id: s.id, title: s.name, sub: s.contact ?? undefined })), [state.suppliers]);
-  const productItems = useMemo<PickItem[]>(
-    () => state.products.map((p) => ({ id: p.id, title: p.name, sub: `${p.sku}${p.barcode ? ` · ${p.barcode}` : ""}`, keywords: `${p.sku} ${p.barcode ?? ""}`, end: <span className="sa-num">{p.qty}</span> })),
-    [state.products],
-  );
+  const productItems = useMemo<PickItem[]>(() => state.products.map((p) => productPick(p)), [state.products]);
 
   const dictionary = useMemo(() => buildDictionary(state.products, state.supplierItems, state.itemRequests), [state.products, state.supplierItems, state.itemRequests]);
 
@@ -220,7 +216,6 @@ export default function ReceivePage() {
       <Done
         title={result.received.length ? "הסחורה נקלטה" : "נשלח לבדיקת מנהל"}
         sub={supplier ? `מהספק: ${supplier.name}` : undefined}
-        note={result.pending.length ? `${result.pending.length === 1 ? "שורה אחת הועברה" : `${result.pending.length} שורות הועברו`} למנהל` : "המלאי עודכן"}
         lines={[...result.received, ...result.pending]}
       />
     );
@@ -242,7 +237,7 @@ export default function ReceivePage() {
           onPick={(id) => { setSupplierId(id); setPickSupplier(false); }}
           onClose={() => setPickSupplier(false)}
           emptyTitle="לא נמצא ספק"
-          extra={{ label: "לא ברשימה, להוסיף ספק חדש", onClick: () => { setPickSupplier(false); setAddSupplier(true); } }}
+          extra={{ label: "הוספת ספק חדש", onClick: () => { setPickSupplier(false); setAddSupplier(true); } }}
         />
       ) : null}
       {addSupplier ? (
@@ -257,13 +252,13 @@ export default function ReceivePage() {
       ) : null}
       {pickProductFor ? (
         <Picker
-          title="מה המוצר במפעל?"
+          title="בחירת מוצר מהמחסן"
           context={lines.find((l) => l.id === pickProductFor)?.externalName.trim() || undefined}
           items={productItems}
           placeholder="שם, מק״ט או ברקוד…"
           onPick={(id) => { patch(pickProductFor, { productId: id, unknown: false }); setPickProductFor(null); }}
           onClose={() => setPickProductFor(null)}
-          extra={{ label: "לא יודע, שהמנהל יבדוק", onClick: () => { patch(pickProductFor, { productId: null, unknown: true }); setPickProductFor(null); } }}
+          extra={{ label: "לטיפול מנהל", icon: "user", onClick: () => { patch(pickProductFor, { productId: null, unknown: true }); setPickProductFor(null); } }}
           emptyTitle="לא נמצא מוצר"
         />
       ) : null}
@@ -275,7 +270,7 @@ export default function ReceivePage() {
   if (step === "start") {
     const blocked = !supplierId
       ? { reason: "חסר ספק", onTap: () => pointAt("supplier") }
-      : mode === null ? { reason: "חסר צילום תעודה או הקלדה ידנית", onTap: () => pointAt("method") } : null;
+      : mode === null ? { reason: "חסר צילום או הקלדה", onTap: () => pointAt("method") } : null;
     return (
       <Flow
         flow="קבלת סחורה מספק"
@@ -285,35 +280,32 @@ export default function ReceivePage() {
         onBack={back}
         title="ממי קיבלת את הסחורה?"
         overlay={overlay}
-        foot={{ label: "המשך לשורות", iconEnd: "arrow-left", onClick: () => { startUpload(); go("lines"); }, blocked }}
+        foot={{ label: "המשך לשורות", onClick: () => { startUpload(); go("lines"); }, blocked }}
       >
-        <Section id="supplier" n={1} title="הספק" need="required" done={!!supplier}>
+        <Section id="supplier" title="הספק" need="required" done={!!supplier}>
           <Row title={supplier ? supplier.name : "בחירת ספק"} selected={!!supplier} end={<Icon name="chevron-left" size={20} />} onClick={() => setPickSupplier(true)} />
         </Section>
-        <Section id="method" n={2} title="איך ממלאים את השורות?" need="required" done={mode !== null} lead="בצילום המערכת ממלאת לבד.">
+        <Section id="method" title="איך ממלאים את השורות?" need="required" done={mode !== null}>
           {!supplier ? (
-            <button type="button" className="wk-photo is-locked" onClick={() => pointAt("supplier")}>
-              <Icon name="camera" />
-              קודם בוחרים ספק
-            </button>
+            <button type="button" className="wk-photo is-locked" onClick={() => pointAt("supplier")}>קודם בוחרים ספק</button>
           ) : photo ? (
             <>
               <div className="wk-shot">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={photo.url} alt="תצלום תעודת המשלוח" />
-                <p className="wk-shot-text" style={{ margin: 0 }}>
+                <p className="wk-shot-text">
                   התעודה צולמה
-                  <span>{readCount === null ? "לא נקראו ממנה שורות" : `נקראו ממנה ${readCount} שורות`}</span>
+                  <span>{readCount === null ? "לא נקראו שורות" : readCount === 1 ? "נקראה שורה אחת" : `נקראו ${readCount} שורות`}</span>
                 </p>
               </div>
               <CameraButton quiet label="צילום מחדש" onFile={onPhoto} />
             </>
           ) : (
-            <CameraButton label="צילום תעודת המשלוח" onFile={onPhoto} />
+            <CameraButton quiet={mode === "manual"} label="צילום תעודת המשלוח" onFile={onPhoto} />
           )}
-          {supplier ? <Row title="הקלדה ידנית" selected={mode === "manual"} icon="edit" onClick={() => setMode("manual")} /> : null}
+          {supplier ? <Row title="הקלדה ידנית" selected={mode === "manual"} onClick={() => setMode("manual")} /> : null}
         </Section>
-        <Section id="reference" n={3} title="מספר תעודה" need="optional">
+        <Section id="reference" title="מספר תעודה" need="optional">
           <Input size="touch" aria-label="מספר תעודה" mono inputMode="numeric" placeholder="123456" value={reference} onChange={(e) => setReference(e.target.value)} />
         </Section>
       </Flow>
@@ -326,10 +318,8 @@ export default function ReceivePage() {
     const open = openLines.length;
     const blocked = open
       ? { reason: open === 1 ? "שורה אחת בלי תשובה" : `${open} שורות בלי תשובה`, onTap: () => pointAt(`line-${openLines[0].id}`) }
-      : validLines.length === 0 ? { reason: "אין עדיין שורות", onTap: () => pointAt(`line-${lines[0].id}`) } : null;
-    const lead = open
-      ? `${open === 1 ? "שורה אחת מחכה" : `${open} שורות מחכות`} לתשובה שלך`
-      : scanned ? "לבדוק מוצרים וכמויות" : "לכתוב שורה ולקבוע כמות";
+      : validLines.length === 0 ? { reason: "חסר שם מוצר", onTap: () => pointAt(`line-${lines[0].id}`) } : null;
+    const lead = scanned && !open ? "לבדוק מוצרים וכמויות" : undefined;
     return (
       <Flow
         flow={`קבלת סחורה מ${supplier?.name ?? "הספק"}`}
@@ -340,9 +330,9 @@ export default function ReceivePage() {
         title="מה הגיע מהספק?"
         lead={lead}
         overlay={overlay}
-        foot={{ label: "המשך לאישור", iconEnd: "arrow-left", onClick: () => go("summary"), blocked }}
+        foot={{ label: "המשך לאישור", onClick: () => go("summary"), blocked }}
       >
-        <div className="wk-stack">
+        <div className="wk-lines">
           {lines.map((l, i) => {
             const r = resolution(l);
             const prod = effectiveProduct(l);
@@ -351,20 +341,19 @@ export default function ReceivePage() {
             const suggestions = name && !prod && !l.unknown && !candidates.length ? suggestSupplierNames(supplierId, name, 5).filter((s) => s.external_name !== name) : [];
             const isOpen = !!name && !prod && !l.unknown;
             return (
-              <article key={l.id} id={`line-${l.id}`} className={cx("wk-line", isOpen && "is-open")}>
+              <article key={l.id} id={`line-${l.id}`} className="wk-line">
                 <div className="wk-line-head">
                   <span className="wk-line-n">שורה {i + 1}</span>
                   <span className="wk-line-state">
                     {isOpen ? <Badge tone="warning">צריך תשובה</Badge> : prod ? <Badge tone="success">מוכן</Badge> : l.unknown ? <Badge tone="neutral">אצל המנהל</Badge> : null}
                   </span>
                   {lines.length > 1 ? (
-                    <button type="button" className="wk-line-remove" aria-label={`הסרת שורה ${i + 1}`} onClick={() => removeLine(l.id)}><Icon name="trash" />הסרה</button>
+                    <button type="button" className="wk-line-remove" aria-label={`הסרת שורה ${i + 1}`} onClick={() => removeLine(l.id)}>הסרה</button>
                   ) : null}
                 </div>
-                {l.scanned ? <span className="wk-receipt-k">נקרא מהתעודה</span> : null}
                 <Input
                   size="touch"
-                  label="שם המוצר כפי שכתוב בתעודה"
+                  label={l.scanned ? "נקרא מהתעודה" : "שם המוצר בתעודה"}
                   placeholder="לדוגמה: לוח אורן 2×4"
                   value={l.externalName}
                   autoComplete="off"
@@ -375,7 +364,7 @@ export default function ReceivePage() {
                     {suggestions.map((s) => (
                       <button key={s.id} type="button" role="option" aria-selected={false} onClick={() => patch(l.id, { externalName: s.external_name, productId: null, unknown: false })}>
                         <span className="sa-truncate">{s.external_name}</span>
-                        <span className="sa-faint sa-truncate" style={{ fontSize: 15 }}>{product(s.product_id)?.name ?? ""}</span>
+                        <span className="wk-suggest-sub sa-truncate">{product(s.product_id)?.name ?? ""}</span>
                       </button>
                     ))}
                   </div>
@@ -383,16 +372,14 @@ export default function ReceivePage() {
 
                 {!name ? null : prod ? (
                   <>
-                    <div className="wk-status is-success">
-                      <Icon name="check-circle" />
+                    <div className="wk-status">
                       <span>זוהה: {prod.name}</span>
                       {r.status === "pending" && !l.productId ? <Badge tone="warning">ממתין לאישור</Badge> : null}
                     </div>
-                    <button type="button" className="wk-textlink" style={{ alignSelf: "flex-start", paddingInline: 0 }} onClick={() => setPickProductFor(l.id)}>{l.productId ? "החלפת מוצר" : "זה מוצר אחר?"}</button>
+                    <button type="button" className="wk-textlink is-start" onClick={() => setPickProductFor(l.id)}>{l.productId ? "החלפת מוצר" : "זה מוצר אחר?"}</button>
                   </>
                 ) : l.unknown ? (
                   <div className="wk-routed">
-                    <Icon name="clock" />
                     <span className="wk-routed-text">עובר למנהל, לא נכנס למלאי</span>
                     <button type="button" className="wk-textlink" onClick={() => patch(l.id, { unknown: false })}>שינוי</button>
                   </div>
@@ -401,10 +388,10 @@ export default function ReceivePage() {
                     <p className="wk-ask">{candidates.length ? "זה המוצר?" : "לא מזוהה. מה עושים?"}</p>
                     {candidates.map((c) => {
                       const match = product(c.productId);
-                      return match ? <Row key={c.productId} icon="check" title={match.name} sub={c.alias && c.alias !== match.name ? `במילון: ${c.alias}` : match.sku} onClick={() => patch(l.id, { productId: match.id, unknown: false })} /> : null;
+                      return match ? <Row key={c.productId} title={match.name} sub={c.alias && c.alias !== match.name ? `במילון: ${c.alias}` : match.sku} onClick={() => patch(l.id, { productId: match.id, unknown: false })} /> : null;
                     })}
-                    <Row icon="link" title={candidates.length ? "זה מוצר אחר מהמחסן" : "יש כזה במחסן"} end={<Icon name="chevron-left" size={20} />} onClick={() => setPickProductFor(l.id)} />
-                    <Row icon="inbox" title="לא יודע, שהמנהל יבדוק" onClick={() => patch(l.id, { productId: null, unknown: true })} />
+                    <Row title={candidates.length ? "זה מוצר אחר מהמחסן" : "יש כזה במחסן"} end={<Icon name="chevron-left" size={20} />} onClick={() => setPickProductFor(l.id)} />
+                    <Row title="לטיפול מנהל" end={<Icon name="user" size={20} />} onClick={() => patch(l.id, { productId: null, unknown: true })} />
                   </div>
                 )}
 
@@ -415,13 +402,13 @@ export default function ReceivePage() {
               </article>
             );
           })}
-          <Row quiet icon="plus" title="הוספת שורה" onClick={() => setLines((ls) => [...ls, newLine()])} />
+          <Row quiet title="הוספת שורה" onClick={() => setLines((ls) => [...ls, newLine()])} />
         </div>
         {services.length ? (
-          <section className="wk-stack">
+          <section className="wk-section">
             <p className="wk-ask">עבודות, לא נכנס למלאי</p>
             {services.map((sv, i) => (
-              <Row key={`${sv.externalName}-${i}`} icon="edit" title={sv.externalName} sub={sv.qty !== 1 ? `כמות: ${sv.qty}` : undefined} end={<span style={{ fontSize: 15 }}>זה מוצר?</span>} onClick={() => { setServices((list) => list.filter((_, j) => j !== i)); setLines((ls) => [...ls.filter((x) => x.externalName.trim()), newLine({ externalName: sv.externalName, qty: Math.max(1, Math.round(sv.qty)), scanned: true })]); }} />
+              <Row key={`${sv.externalName}-${i}`} title={sv.externalName} sub={sv.qty !== 1 ? `כמות: ${sv.qty}` : undefined} end="זה מוצר?" onClick={() => { setServices((list) => list.filter((_, j) => j !== i)); setLines((ls) => [...ls.filter((x) => x.externalName.trim()), newLine({ externalName: sv.externalName, qty: Math.max(1, Math.round(sv.qty)), scanned: true })]); }} />
             ))}
           </section>
         ) : null}
@@ -440,19 +427,18 @@ export default function ReceivePage() {
       current="summary"
       dir={dir}
       onBack={back}
-      title="בדיקה אחרונה ואישור"
+      title="בדיקה ואישור"
       lead="עדיין לא נשמר כלום"
       overlay={overlay}
-      foot={{ label: toReceive.length ? "אישור הקליטה" : "שליחה לבדיקת מנהל", icon: "check", onClick: submit, busy: busy ? (total > 1 ? `שומר ${Math.min(progress + 1, total)} מתוך ${total}` : "שומר") : null }}
+      foot={{ label: toReceive.length ? "אישור הקליטה" : "שליחה לטיפול מנהל", onClick: submit, busy: busy ? (total > 1 ? `שומר ${Math.min(progress + 1, total)} מתוך ${total}` : "שומר") : null }}
     >
-      {error ? <Hint tone="attention" title="לא נשמר. צריך לבדוק אינטרנט וללחוץ שוב." /> : null}
+      {error ? <Hint tone="attention" title="לא נשמר. לבדוק אינטרנט וללחוץ שוב." /> : null}
       <Summary
         heading="פרטי הקליטה"
         meta={[
           { k: "ספק", v: supplier?.name },
-          { k: "עובד", v: worker.name },
-          ...(reference.trim() ? [{ k: "תעודה", v: <span className="sa-num" style={{ fontSize: 17 }}>{reference.trim()}</span> }] : []),
-          { k: "תמונה", v: photo ? "צולמה" : "ללא" },
+          ...(reference.trim() ? [{ k: "תעודה", v: <span className="sa-num">{reference.trim()}</span> }] : []),
+          ...(photo ? [{ k: "תמונה", v: "צולמה" }] : []),
         ]}
         lines={[]}
       />

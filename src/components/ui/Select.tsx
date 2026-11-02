@@ -164,7 +164,7 @@ export function Select({
     <div
       ref={rootRef}
       className={cx("sa-select", className)}
-      style={{ minWidth, maxWidth, width: block ? "100%" : undefined }}
+      style={{ minWidth: block ? 0 : minWidth, maxWidth, width: block ? "100%" : undefined }}
       onKeyDown={onKeyDown}
     >
       <button

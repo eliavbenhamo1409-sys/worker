@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/Badge";
+import { Dot } from "@/components/ui/Dot";
 import { Icon } from "@/components/ui/Icon";
 import { Input } from "@/components/ui/Input";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
@@ -13,7 +14,7 @@ import type { ScannedLine } from "@/lib/worker/ocr";
 import { useDocumentScan, type ReadLine } from "@/lib/worker/scan";
 import { buildDictionary, matchLine, type Candidate } from "@/lib/worker/match";
 import { fmtQty } from "@/lib/format";
-import { Boot, CameraButton, Cta, Done, Flow, Hint, Picker, Row, Section, StepHead, Summary, pointAt, useSteps, type PickItem, type SummaryLine } from "@/components/worker";
+import { Boot, CameraButton, Cta, Done, Flow, Hint, Picker, Row, Section, StepHead, Summary, pointAt, productPick, useSteps, type PickItem, type SummaryLine } from "@/components/worker";
 import { Scanner } from "@/components/worker/Scanner";
 
 type Step = "start" | "lines" | "summary" | "done";
@@ -39,12 +40,12 @@ function AddToDictionary({ initialName, initialNote, onSubmit, onClose }: { init
     <div className="wk-sheet" role="dialog" aria-modal="true" aria-label="הוספה למילון המחסן">
       <div className="wk-sheet-inner">
         <StepHead title="הוספה למילון המחסן" onBack={onClose} />
-        <p className="wk-sheet-lead">המנהל יאשר לפני שהכמות תרד מהמלאי.</p>
+        <p className="wk-sheet-lead">המנהל יאשר לפני שהכמות תרד מהמלאי</p>
         <div className="wk-sheet-form">
-          <Input id="new-product" size="touch" label="שם המוצר" required placeholder="לדוגמה: מדף אלון 28 מ״מ" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+          <Input id="new-product" size="touch" label="שם המוצר" aria-required placeholder="לדוגמה: מדף אלון 28 מ״מ" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
           <Input size="touch" label="הערה למנהל" optional placeholder="מידה, צבע" value={note} onChange={(e) => setNote(e.target.value)} autoComplete="off" />
           <div className="wk-sheet-actions">
-            <Cta label="שליחה לאישור מנהל" icon="check" onClick={() => onSubmit(name.trim(), note.trim())} blocked={name.trim() ? null : { reason: "חסר שם מוצר", onTap: () => document.getElementById("new-product")?.focus() }} />
+            <Cta label="שליחה לאישור מנהל" onClick={() => onSubmit(name.trim(), note.trim())} blocked={name.trim() ? null : { reason: "חסר שם מוצר", onTap: () => document.getElementById("new-product")?.focus() }} />
           </div>
         </div>
       </div>
@@ -109,10 +110,7 @@ export default function DeliverPage() {
     setLines((ls) => ls.filter((l) => !l.scanned).concat(ls.every((l) => l.scanned) ? [newLine()] : []));
   };
 
-  const productItems = useMemo<PickItem[]>(
-    () => state.products.map((p) => ({ id: p.id, title: p.name, sub: `${p.sku}${p.barcode ? ` · ${p.barcode}` : ""}`, keywords: `${p.sku} ${p.barcode ?? ""}`, end: <span className="sa-num">{fmtQty(p.qty)}</span> })),
-    [state.products],
-  );
+  const productItems = useMemo<PickItem[]>(() => state.products.map((p) => productPick(p, true)), [state.products]);
 
   const patch = (id: string, p: Partial<Line>) => setLines((ls) => ls.map((l) => (l.id === id ? { ...l, ...p } : l)));
   /** The worker says a scanned line is work, not goods: move it to the services list. */
@@ -192,8 +190,6 @@ export default function DeliverPage() {
       <Done
         title={result.issued.length ? "המסירה נשמרה" : "נשלח למנהל"}
         sub={`ללקוח: ${name}`}
-        note={result.routed.length ? `${result.routed.length === 1 ? "פריט אחד מחכה" : `${result.routed.length} פריטים מחכים`} למנהל` : "המלאי עודכן"}
-        tone="accent"
         lines={[...result.issued, ...result.routed]}
       />
     );
@@ -218,7 +214,7 @@ export default function DeliverPage() {
           onPick={(id) => { patch(pickFor, { productId: id, route: undefined, proposedName: undefined, workerNote: undefined }); setPickFor(null); }}
           onClose={() => setPickFor(null)}
           emptyTitle="לא נמצא מוצר"
-          extra={{ label: "לא מצאתי, להוסיף למילון המחסן", onClick: () => { setAddFor(pickFor); setPickFor(null); } }}
+          extra={{ label: "הוספה למילון המחסן", onClick: () => { setAddFor(pickFor); setPickFor(null); } }}
         />
       ) : null}
       {addFor && addLine ? (
@@ -245,41 +241,36 @@ export default function DeliverPage() {
         overlay={overlay}
         foot={{
           label: photo ? "המשך לפריטים" : "המשך בלי קבלה",
-          iconEnd: "arrow-left",
           onClick: () => { startUpload(); go("lines"); },
           blocked: name ? null : { reason: "חסר שם לקוח", onTap: () => pointAt("customer") },
         }}
       >
-        <Section id="customer" n={1} title="שם הלקוח" need="required" done={!!name}>
+        <Section id="customer" title="שם הלקוח" need="required" done={!!name}>
           <Input size="touch" aria-label="שם הלקוח" placeholder="לדוגמה: נגריית כהן" value={customer} onChange={(e) => setCustomer(e.target.value)} autoComplete="off" />
           {recent.length ? (
-            <div className="wk-chips">
-              <span className="wk-chips-label">לקוחות אחרונים</span>
-              {recent.map((c) => <button key={c} type="button" className={cx("wk-chip", c === name && "is-selected")} onClick={() => setCustomer(c)}>{c}</button>)}
+            <div className="wk-recent-list">
+              {recent.map((c) => <button key={c} type="button" className={cx("wk-recent-item", c === name && "is-selected")} onClick={() => setCustomer(c)}>{c}</button>)}
             </div>
           ) : null}
         </Section>
-        <Section id="receipt" n={2} title="צילום הקבלה" need="optional" done={!!photo} lead="המערכת תמלא את הפריטים לבד.">
+        <Section id="receipt" title="צילום הקבלה" need="optional" done={!!photo} lead="הפריטים יתמלאו לבד">
           {!name ? (
-            <button type="button" className="wk-photo is-locked" onClick={() => pointAt("customer")}>
-              <Icon name="camera" />
-              קודם שם לקוח
-            </button>
+            <button type="button" className="wk-photo is-locked" onClick={() => pointAt("customer")}>קודם שם לקוח</button>
           ) : photo ? (
             <>
               <div className="wk-shot">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={photo.url} alt="תצלום הקבלה" />
-                <p className="wk-shot-text" style={{ margin: 0 }}>
+                <p className="wk-shot-text">
                   הקבלה צולמה
-                  <span>{readCount === null ? "לא נקראו ממנה פריטים" : `נקראו ממנה ${readCount} שורות`}</span>
+                  <span>{readCount === null ? "לא נקראו שורות" : readCount === 1 ? "נקראה שורה אחת" : `נקראו ${readCount} שורות`}</span>
                 </p>
                 <button type="button" className="wk-textlink" onClick={removePhoto}>הסרה</button>
               </div>
               <CameraButton quiet label="צילום מחדש" onFile={onPhoto} />
             </>
           ) : (
-            <CameraButton label="צילום הקבלה" onFile={onPhoto} />
+            <CameraButton quiet label="צילום הקבלה" onFile={onPhoto} />
           )}
         </Section>
       </Flow>
@@ -289,9 +280,7 @@ export default function DeliverPage() {
   if (step === "lines") {
     const scanned = lines.some((l) => l.scanned);
     const firstOpen = lines.find(unanswered);
-    const lead = open > 0
-      ? `${open === 1 ? "פריט אחד מחכה" : `${open} פריטים מחכים`} לתשובה שלך`
-      : scanned ? "לבדוק מוצרים וכמויות" : "לבחור מוצר ולקבוע כמות";
+    const lead = scanned && open === 0 ? "לבדוק מוצרים וכמויות" : undefined;
     const blocked = firstOpen
       ? { reason: open === 1 ? "פריט אחד בלי תשובה" : `${open} פריטים בלי תשובה`, onTap: () => pointAt(`line-${firstOpen.id}`) }
       : valid.length + routed.length === 0 ? { reason: "לא נבחר מוצר", onTap: () => pointAt(`line-${lines[0].id}`) } : null;
@@ -305,22 +294,22 @@ export default function DeliverPage() {
         title="מה מסרת ללקוח?"
         lead={lead}
         overlay={overlay}
-        foot={{ label: "המשך לאישור", iconEnd: "arrow-left", onClick: () => go("summary"), blocked }}
+        foot={{ label: "המשך לאישור", onClick: () => go("summary"), blocked }}
       >
         {state.products.length === 0 ? <Hint title="אין מוצרים במלאי" /> : null}
-        <div className="wk-stack">
+        <div className="wk-lines">
           {lines.map((l, i) => {
             const p = product(l.productId);
             const over = p ? l.qty > p.qty : false;
             const unknown = !p && !!l.hint;
             return (
-              <article key={l.id} id={`line-${l.id}`} className={cx("wk-line", unanswered(l) && "is-open")}>
+              <article key={l.id} id={`line-${l.id}`} className="wk-line">
                 <div className="wk-line-head">
                   <span className="wk-line-n">פריט {i + 1}</span>
                   <span className="wk-line-state">
-                    {unanswered(l) ? <Badge tone="warning">צריך תשובה</Badge> : p ? <Badge tone="success">מוכן</Badge> : l.route ? <Badge tone="neutral">אצל המנהל</Badge> : null}
+                    {unanswered(l) ? <Badge tone="warning">צריך תשובה</Badge> : over ? <Badge tone="warning">מעל המלאי</Badge> : p ? <Badge tone="success">מוכן</Badge> : l.route ? <Badge tone="neutral">אצל המנהל</Badge> : null}
                   </span>
-                  {lines.length > 1 ? <button type="button" className="wk-line-remove" aria-label={`הסרת פריט ${i + 1}`} onClick={() => removeLine(l.id)}><Icon name="trash" />הסרה</button> : null}
+                  {lines.length > 1 ? <button type="button" className="wk-line-remove" aria-label={`הסרת פריט ${i + 1}`} onClick={() => removeLine(l.id)}>הסרה</button> : null}
                 </div>
                 {unknown ? (
                   <div className="wk-receipt">
@@ -341,16 +330,15 @@ export default function DeliverPage() {
                     <p className="wk-ask">{l.candidates?.length ? "זה המוצר?" : "לא מזוהה. מה עושים?"}</p>
                     {l.candidates?.map((c) => {
                       const match = product(c.productId);
-                      return match ? <Row key={c.productId} icon="check" title={match.name} sub={c.alias && c.alias !== match.name ? `במילון: ${c.alias}` : match.sku} onClick={() => patch(l.id, { productId: match.id })} /> : null;
+                      return match ? <Row key={c.productId} title={match.name} sub={c.alias && c.alias !== match.name ? `במילון: ${c.alias}` : match.sku} onClick={() => patch(l.id, { productId: match.id })} /> : null;
                     })}
-                    <Row icon="link" title={l.candidates?.length ? "זה מוצר אחר מהמחסן" : "יש כזה במחסן"} end={<Icon name="chevron-left" size={20} />} onClick={() => setPickFor(l.id)} />
-                    <Row icon="inbox" title="לא יודע, שהמנהל יטפל" onClick={() => patch(l.id, { route: "manager" })} />
-                    <Row icon="plus" title="אין כזה במחסן, להוסיף" end={<Icon name="chevron-left" size={20} />} onClick={() => setAddFor(l.id)} />
+                    <Row title={l.candidates?.length ? "זה מוצר אחר מהמחסן" : "יש כזה במחסן"} end={<Icon name="chevron-left" size={20} />} onClick={() => setPickFor(l.id)} />
+                    <Row title="לטיפול מנהל" end={<Icon name="user" size={20} />} onClick={() => patch(l.id, { route: "manager" })} />
+                    <Row title="אין כזה במחסן, להוסיף" end={<Icon name="chevron-left" size={20} />} onClick={() => setAddFor(l.id)} />
                   </div>
                 ) : null}
                 {!p && l.route ? (
                   <div className="wk-routed">
-                    <Icon name="clock" />
                     <span className="wk-routed-text">
                       {l.route === "new" ? "יתווסף למילון המחסן אחרי אישור מנהל" : "יעבור למנהל לטיפול"}
                       {l.proposedName && l.proposedName !== l.hint ? <span className="wk-row-sub">{l.proposedName}</span> : null}
@@ -359,26 +347,26 @@ export default function DeliverPage() {
                   </div>
                 ) : null}
                 {p ? (
-                  <div className={over ? "wk-status is-warning" : "wk-status is-muted"}>
-                    <Icon name={over ? "alert-circle" : "package"} />
-                    <span>במלאי <span className="sa-num" style={{ fontSize: 15 }}>{fmtQty(p.qty)}</span> {p.unit}{over ? ", פחות ממה שמסרת" : ""}</span>
+                  <div className={cx("wk-status", !over && "is-muted")}>
+                    {over ? <Dot tone="warning" /> : null}
+                    <span>במלאי <span className="sa-num">{fmtQty(p.qty)}</span> {p.unit}{over ? ", פחות ממה שמסרת" : ""}</span>
                   </div>
                 ) : null}
                 <div className="wk-qty-row">
                   <span className="wk-qty-label">כמות{p?.unit ? ` (${p.unit})` : ""}</span>
                   <QuantityStepper value={l.qty} min={1} onChange={(n) => patch(l.id, { qty: n })} />
                 </div>
-                {l.scanned && unanswered(l) ? <button type="button" className="wk-textlink" onClick={() => toService(l)}>זו עבודה, לא מוצר</button> : null}
+                {l.scanned && unanswered(l) ? <button type="button" className="wk-textlink is-start" onClick={() => toService(l)}>זו עבודה, לא מוצר</button> : null}
               </article>
             );
           })}
-          <Row quiet icon="plus" title="הוספת פריט" onClick={() => setLines((ls) => [...ls, newLine()])} />
+          <Row quiet title="הוספת פריט" onClick={() => setLines((ls) => [...ls, newLine()])} />
         </div>
         {services.length ? (
-          <section className="wk-stack">
+          <section className="wk-section">
             <p className="wk-ask">עבודות, לא יורד מהמלאי</p>
             {services.map((sv, i) => (
-              <Row key={`${sv.externalName}-${i}`} icon="edit" title={sv.externalName} sub={sv.qty !== 1 ? `כמות: ${sv.qty}` : undefined} end={<span style={{ fontSize: 15 }}>זה מוצר?</span>} onClick={() => toLine(i)} />
+              <Row key={`${sv.externalName}-${i}`} title={sv.externalName} sub={sv.qty !== 1 ? `כמות: ${sv.qty}` : undefined} end="זה מוצר?" onClick={() => toLine(i)} />
             ))}
           </section>
         ) : null}
@@ -397,19 +385,18 @@ export default function DeliverPage() {
       current="summary"
       dir={dir}
       onBack={back}
-      title="בדיקה אחרונה ואישור"
+      title="בדיקה ואישור"
       lead="עדיין לא נשמר כלום"
       overlay={overlay}
-      foot={{ label: valid.length ? "אישור המסירה" : "שליחה למנהל", icon: "check", onClick: submit, busy: busy ? (total > 1 ? `שומר ${Math.min(progress + 1, total)} מתוך ${total}` : "שומר") : null }}
+      foot={{ label: valid.length ? "אישור המסירה" : "שליחה לטיפול מנהל", onClick: submit, busy: busy ? (total > 1 ? `שומר ${Math.min(progress + 1, total)} מתוך ${total}` : "שומר") : null }}
     >
-      {error ? <Hint tone="attention" title="לא נשמר. צריך לבדוק אינטרנט וללחוץ שוב." /> : null}
-      {anyOver ? <Hint tone="attention" title="כמות גדולה מהמלאי. המלאי ירד לאפס." /> : null}
+      {error ? <Hint tone="attention" title="לא נשמר. לבדוק אינטרנט וללחוץ שוב." /> : null}
+      {anyOver ? <Hint tone="attention" title="כמות גדולה מהמלאי" /> : null}
       <Summary
         heading="פרטי המסירה"
         meta={[
           { k: "לקוח", v: name },
-          { k: "עובד", v: worker.name },
-          { k: "קבלה", v: photo ? "צולמה" : "ללא" },
+          ...(photo ? [{ k: "קבלה", v: "צולמה" }] : []),
           ...(services.length ? [{ k: "עבודות", v: services.map((sv) => `${sv.externalName}${sv.qty !== 1 ? ` ×${sv.qty}` : ""}`).join(", ") }] : []),
         ]}
         lines={[]}

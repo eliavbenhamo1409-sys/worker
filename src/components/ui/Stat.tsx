@@ -1,40 +1,38 @@
 "use client";
 
+import Link from "next/link";
 import type { ReactNode } from "react";
-import { Icon, type IconName } from "./Icon";
-import { Square } from "./Mark";
+import { Dot } from "./Dot";
 
 export interface StatProps {
   label: string;
   value: string | number;
   unit?: string;
-  icon?: IconName;
   delta?: number;
   deltaUnit?: string;
   /** Whether a positive delta is good (default true). */
   deltaGood?: boolean;
   note?: ReactNode;
   tone?: "warning" | "danger";
+  /** Makes the whole tile a link to the page that explains the number. */
+  href?: string;
   className?: string;
 }
 
 const cx = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(" ");
 
 /** KPI tile — three per overview. */
-export function Stat({ label, value, unit, icon, delta, deltaUnit, deltaGood = true, note, tone, className }: StatProps) {
+export function Stat({ label, value, unit, delta, deltaUnit, deltaGood = true, note, tone, href, className }: StatProps) {
   const dir = delta == null ? null : delta > 0 ? "up" : delta < 0 ? "down" : "flat";
   const good = dir === "up" ? deltaGood : dir === "down" ? !deltaGood : null;
   // A unit that starts with % or a Latin word glues onto the number; a Hebrew unit sits beside it.
   const inlineUnit = deltaUnit != null && /^[%\w]/.test(deltaUnit);
 
-  return (
-    <div className={cx("sa-stat", tone && `is-${tone}`, className)}>
+  const body = (
+    <>
       <div className="sa-stat-label">
-        <span className="inline-flex items-center gap-2">
-          {tone ? <Square tone={tone} /> : null}
-          {label}
-        </span>
-        {icon ? <Icon name={icon} /> : null}
+        {tone ? <Dot tone={tone} /> : null}
+        {label}
       </div>
       <div className="sa-stat-value">
         <span>{value}</span>
@@ -44,14 +42,15 @@ export function Stat({ label, value, unit, icon, delta, deltaUnit, deltaGood = t
         {dir && delta != null ? (
           <span className={cx("sa-delta", dir === "flat" ? "is-flat" : good ? "is-up" : "is-down")}>
             <span className="sa-delta-num">
-              {dir !== "flat" ? <Icon name={dir === "up" ? "arrow-up" : "arrow-down"} size={12} strokeWidth={2.5} /> : null}
-              {(delta > 0 ? "+" : "") + String(delta) + (inlineUnit ? deltaUnit : "")}
+              {(delta > 0 ? "+" : delta < 0 ? "−" : "") + String(Math.abs(delta)) + (inlineUnit ? deltaUnit : "")}
             </span>
             {deltaUnit && !inlineUnit ? <span>{deltaUnit.trim()}</span> : null}
           </span>
         ) : null}
         {note ? <span>{note}</span> : null}
       </div>
-    </div>
+    </>
   );
+  const classes = cx("sa-stat", className);
+  return href ? <Link href={href} className={classes}>{body}</Link> : <div className={classes}>{body}</div>;
 }

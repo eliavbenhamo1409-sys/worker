@@ -8,7 +8,7 @@ import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { useData } from "@/lib/store";
 import { useCurrentWorker, uploadFaultPhoto } from "@/lib/worker-store";
 import { fmtQty } from "@/lib/format";
-import { Boot, CameraButton, Done, Flow, Hint, Picker, Row, Section, Summary, pointAt, useSteps, type PickItem, type SummaryLine } from "@/components/worker";
+import { Boot, CameraButton, Done, Flow, Hint, Picker, Row, Section, Summary, pointAt, productPick, useSteps, type PickItem, type SummaryLine } from "@/components/worker";
 
 type Step = "what" | "summary" | "done";
 
@@ -39,6 +39,11 @@ export default function FaultPage() {
     if (ready && !worker) router.replace("/worker");
   }, [ready, worker, router]);
   useEffect(() => () => { if (photo) URL.revokeObjectURL(photo.url); }, [photo]);
+  useEffect(() => {
+    if (!productId) return;
+    const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    document.getElementById("write-off")?.scrollIntoView({ behavior: calm ? "auto" : "smooth", block: "center" });
+  }, [productId]);
 
   const onPhoto = (file: File | undefined) => {
     if (!file) return;
@@ -46,10 +51,7 @@ export default function FaultPage() {
     setPhoto((prev) => { if (prev) URL.revokeObjectURL(prev.url); return { file, url: URL.createObjectURL(file) }; });
   };
 
-  const items = useMemo<PickItem[]>(
-    () => state.products.map((p) => ({ id: p.id, title: p.name, sub: `${p.sku}${p.barcode ? ` · ${p.barcode}` : ""}`, keywords: `${p.sku} ${p.barcode ?? ""}`, end: <span className="sa-num">{fmtQty(p.qty)}</span> })),
-    [state.products],
-  );
+  const items = useMemo<PickItem[]>(() => state.products.map((p) => productPick(p, true)), [state.products]);
   const p = product(productId);
   const described = description.trim().length > 0;
 
@@ -79,9 +81,9 @@ export default function FaultPage() {
 
   if (!ready || !worker) return <Boot />;
 
-  const lines: SummaryLine[] = p && withQty ? [{ key: "q", title: p.name, sub: "ייגרע מהמלאי כפגום", qty, unit: p.unit }] : [];
+  const lines: SummaryLine[] = p && withQty ? [{ key: "q", title: p.name, qty, unit: p.unit }] : [];
   if (step === "done" && done) {
-    return <Done title="הדיווח נשלח" sub={photoError ? "התמונה לא הועלתה, התקלה דווחה" : "המנהל קיבל את הדיווח"} tone="neutral" lines={lines} />;
+    return <Done title="הדיווח נשלח למנהל" sub={photoError ? "התמונה לא הועלתה, התקלה דווחה" : undefined} lines={lines.map((l) => ({ ...l, sub: "ייגרע מהמלאי כפגום" }))} />;
   }
 
   const back = () => (step === "what" ? router.push("/worker") : go("what"));
@@ -97,34 +99,37 @@ export default function FaultPage() {
         title="מה קרה?"
         foot={{
           label: "המשך לאישור",
-          iconEnd: "arrow-left",
           onClick: () => go("summary"),
           blocked: described ? null : { reason: "חסר תיאור התקלה", onTap: () => pointAt("what") },
         }}
         overlay={pick ? <Picker title="מוצר קשור" items={items} placeholder="שם, מק״ט או ברקוד…" onPick={(id) => { setProductId(id); setPick(false); }} onClose={() => setPick(false)} emptyTitle="לא נמצא מוצר" /> : null}
       >
-        <Section id="what" n={1} title="תיאור התקלה" need="required" done={described}>
-          <Input size="touch" multiline aria-label="תיאור התקלה" placeholder="לדוגמה: לוחות הגיעו רטובים, נשבר בזמן העמסה" value={description} onChange={(e) => setDescription(e.target.value)} style={{ minHeight: 120, paddingTop: 12, paddingBottom: 12 }} />
+        <Section id="what" title="תיאור התקלה" need="required" done={described}>
+          <Input size="touch" multiline aria-label="תיאור התקלה" placeholder="לדוגמה: לוחות הגיעו רטובים" value={description} onChange={(e) => setDescription(e.target.value)} />
         </Section>
-        <Section n={2} title="תמונה" need="optional" done={!!photo}>
+        <Section title="תמונה" need="optional" done={!!photo}>
           {photo ? (
             <>
               <div className="wk-shot">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={photo.url} alt="תצלום התקלה" />
-                <p className="wk-shot-text" style={{ margin: 0 }}>התמונה צורפה</p>
+                <p className="wk-shot-text">התמונה צורפה</p>
                 <button type="button" className="wk-textlink" onClick={() => setPhoto(null)}>הסרה</button>
               </div>
               <CameraButton quiet label="צילום מחדש" onFile={onPhoto} />
             </>
           ) : <CameraButton quiet label="צילום התקלה" onFile={onPhoto} />}
         </Section>
-        <Section n={3} title="מוצר קשור" need="optional" done={!!p}>
+        <Section title="מוצר קשור" need="optional" done={!!p}>
           <Row title={p ? p.name : "בחירת מוצר"} sub={p ? <span className="sa-num">{p.sku}</span> : undefined} selected={!!p} end={<Icon name="chevron-left" size={20} />} onClick={() => setPick(true)} />
           {p ? (
             <>
-              <button type="button" className="wk-textlink" style={{ alignSelf: "flex-start", paddingInline: 0 }} onClick={() => { setProductId(null); setWithQty(false); }}>הסרת המוצר</button>
-              <Row title="להוריד כמות פגומה מהמלאי?" sub={`במלאי ${fmtQty(p.qty)} ${p.unit}`} selected={withQty} icon="package" onClick={() => setWithQty((v) => !v)} />
+              <button type="button" className="wk-textlink is-start" onClick={() => { setProductId(null); setWithQty(false); }}>הסרת המוצר</button>
+              <div id="write-off" className="wk-choices">
+                <p className="wk-ask">להוריד כמות פגומה מהמלאי?</p>
+                <Row title="כן, להוריד" sub={`במלאי ${fmtQty(p.qty)} ${p.unit}`} selected={withQty} onClick={() => setWithQty(true)} />
+                <Row title="לא" selected={!withQty} onClick={() => setWithQty(false)} />
+              </div>
               {withQty ? (
                 <div className="wk-qty-row">
                   <span className="wk-qty-label">כמות פגומה ({p.unit})</span>
@@ -145,19 +150,18 @@ export default function FaultPage() {
       current="summary"
       dir={dir}
       onBack={back}
-      title="בדיקה אחרונה ושליחה"
+      title="בדיקה ושליחה"
       lead="עדיין לא נשלח כלום"
-      foot={{ label: "שליחת הדיווח למנהל", icon: "check", onClick: submit, busy: busy ? "שולח את הדיווח" : null }}
+      foot={{ label: "שליחת הדיווח למנהל", onClick: submit, busy: busy ? "שולח את הדיווח" : null }}
     >
-      {error ? <Hint tone="attention" title="לא נשלח. צריך לבדוק אינטרנט וללחוץ שוב." /> : null}
+      {error ? <Hint tone="attention" title="לא נשלח. לבדוק אינטרנט וללחוץ שוב." /> : null}
       <Summary
         heading="פרטי הדיווח"
         meta={[
-          { k: "תקלה", v: <span style={{ whiteSpace: "normal" }}>{description.trim()}</span> },
+          { k: "תקלה", v: description.trim() },
           { k: "מוצר", v: p ? p.name : "ללא" },
           // eslint-disable-next-line @next/next/no-img-element
-          { k: "תמונה", v: photo ? <img src={photo.url} alt="תצלום התקלה" style={{ display: "block", width: 96, height: 72, objectFit: "cover", borderRadius: 8 }} /> : "ללא" },
-          { k: "עובד", v: worker.name },
+          ...(photo ? [{ k: "תמונה", v: <img src={photo.url} alt="תצלום התקלה" className="wk-sum-photo" /> }] : []),
         ]}
         lines={[]}
       />

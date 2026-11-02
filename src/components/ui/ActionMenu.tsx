@@ -1,16 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import type { IconName, Tone } from "./Icon";
 import { Button, type ButtonProps } from "./Button";
-import { Mark } from "./Mark";
 
 export interface ActionItem {
   key: string;
   label: string;
-  sub?: string;
-  icon: IconName;
-  tone?: Tone;
 }
 
 export interface ActionMenuProps {
@@ -26,9 +21,9 @@ export interface ActionMenuProps {
 }
 
 export const DEFAULT_ACTIONS: ActionItem[] = [
-  { key: "receive", label: "קליטת סחורה", sub: "כניסה למלאי מספק", icon: "arrow-down-left", tone: "success" },
-  { key: "issue", label: "הוצאת סחורה", sub: "יציאה לייצור או ללקוח", icon: "arrow-up-right", tone: "accent" },
-  { key: "fault", label: "דיווח תקלה", sub: "פריט פגום, חוסר או חריגה", icon: "alert-triangle", tone: "danger" },
+  { key: "receive", label: "קליטת סחורה" },
+  { key: "issue", label: "הוצאת סחורה" },
+  { key: "fault", label: "דיווח תקלה" },
 ];
 
 function cx(...parts: (string | false | null | undefined)[]): string {
@@ -140,7 +135,6 @@ export function ActionMenu({
       <Button
         ref={triggerRef}
         variant={variant}
-        icon="plus"
         iconEnd="chevron-down"
         aria-haspopup="menu"
         aria-expanded={open}
@@ -164,15 +158,11 @@ export function ActionMenu({
                 type="button"
                 role="menuitem"
                 tabIndex={i === active || (active < 0 && i === 0) ? 0 : -1}
-                className={cx("sa-menu-item", `is-${a.tone ?? "neutral"}`, i === active && "is-active")}
+                className={cx("sa-menu-item", i === active && "is-active")}
                 onMouseEnter={() => setActive(i)}
                 onClick={() => select(a.key)}
               >
-                <Mark tone={a.tone ?? "neutral"} icon={a.icon} />
-                <span>
-                  {a.label}
-                  {a.sub ? <span className="sa-menu-item-sub">{a.sub}</span> : null}
-                </span>
+                {a.label}
               </button>
             ))}
           </div>

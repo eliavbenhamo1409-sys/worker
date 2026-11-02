@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useRef, type CSSProperties, type ReactElement } from "react";
 import { Button } from "@/components/ui/Button";
+import { Dot } from "@/components/ui/Dot";
 import { Icon } from "@/components/ui/Icon";
 import { cx } from "@/components/ui/cx";
 import type { Product } from "@/lib/store";
@@ -42,7 +43,7 @@ function Stages({ stage }: { stage: ScanStage }): ReactElement {
       <ol className="wk-scan-stages">
         {STAGES.map((s, i) => (
           <li key={s.key} className={cx("wk-scan-stage-row", i < now && "is-done", i === now && "is-active")} aria-current={i === now ? "step" : undefined}>
-            <span className="wk-scan-tick" aria-hidden="true">{i < now ? <Icon name="check" size={16} strokeWidth={3} /> : i === now ? <span className="wk-scan-spin" /> : null}</span>
+            <span className="wk-scan-tick" aria-hidden="true">{i < now ? <Icon name="check" size={18} /> : i === now ? <span className="wk-scan-spin" /> : null}</span>
             {s.label}
           </li>
         ))}
@@ -54,11 +55,10 @@ function Stages({ stage }: { stage: ScanStage }): ReactElement {
   );
 }
 
-function ResultRow({ line, index, identified }: { line: ReadLine; index: number; identified?: Product }): ReactElement {
-  const needsAnswer = !identified;
+function ResultRow({ line, identified }: { line: ReadLine; identified?: Product }): ReactElement {
   return (
-    <li className="wk-read" style={{ "--i": Math.min(index, 8) } as CSSProperties}>
-      <span className={cx("wk-read-tick", needsAnswer && "is-open")} aria-hidden="true">{needsAnswer ? null : <Icon name="check" size={14} strokeWidth={3} />}</span>
+    <li className="wk-read">
+      <span className="wk-read-tick" aria-hidden="true">{identified ? <Icon name="check" size={18} /> : <Dot tone="warning" />}</span>
       <span className="wk-read-body">
         <span className="wk-read-name">{line.externalName}</span>
         <span className="wk-read-sub">{identified ? `זוהה: ${identified.name}` : "מחכה לתשובה שלך"}</span>
@@ -96,9 +96,11 @@ export function Scanner({ scan, docName, unit, identify, onContinue, onManual, o
 
   return (
     <div className={cx("wk-scan", settled && "is-settled")} role="dialog" aria-modal="true" aria-label={`קריאת ${docName}`}>
-      <header className="wk-scan-head">
-        <h1 className="wk-scan-title">{settled ? "הקריאה הסתיימה" : `מעבד את ${docName}`}</h1>
-      </header>
+      {scan.status === "reading" ? (
+        <header className="wk-scan-head">
+          <h1 className="wk-scan-title">{`מעבד את ${docName}`}</h1>
+        </header>
+      ) : null}
       <div className="wk-scan-stage">
         <Document doc={scan.doc} />
       </div>
@@ -122,10 +124,10 @@ export function Scanner({ scan, docName, unit, identify, onContinue, onManual, o
             </p>
           </div>
           <ul className="wk-scan-list">
-            {scan.goods.map((l, i) => <ResultRow key={`${l.externalName}-${i}`} line={l} index={i} identified={identify(l)} />)}
+            {scan.goods.map((l, i) => <ResultRow key={`${l.externalName}-${i}`} line={l} identified={identify(l)} />)}
             {scan.services.map((sv, i) => (
-              <li key={`${sv.externalName}-${i}`} className="wk-read" style={{ "--i": Math.min(scan.goods.length + i, 8) } as CSSProperties}>
-                <span className="wk-read-tick is-service" aria-hidden="true"><Icon name="edit" size={13} /></span>
+              <li key={`${sv.externalName}-${i}`} className="wk-read">
+                <span className="wk-read-tick" aria-hidden="true" />
                 <span className="wk-read-body">
                   <span className="wk-read-name">{sv.externalName}</span>
                   <span className="wk-read-sub">עבודה, לא נוגעת במלאי</span>
@@ -134,7 +136,7 @@ export function Scanner({ scan, docName, unit, identify, onContinue, onManual, o
             ))}
           </ul>
           <div className="wk-scan-actions">
-            <Button variant="primary" size="touch" iconEnd="arrow-left" onClick={onContinue}>המשך לבדיקה</Button>
+            <Button variant="primary" size="touch" onClick={onContinue}>המשך לבדיקה</Button>
             <CameraButton quiet label="צילום מחדש" onFile={onRetake} />
           </div>
         </div>
@@ -146,13 +148,13 @@ export function Scanner({ scan, docName, unit, identify, onContinue, onManual, o
             <h2 ref={headingRef} tabIndex={-1} className="wk-scan-sheet-title">{scan.status === "empty" ? "לא נמצאו פריטים במסמך" : "הקריאה לא הצליחה"}</h2>
             <p className="wk-scan-sheet-lead">
               {scan.status === "empty"
-                ? "אפשר לצלם שוב מקרוב, או למלא ידנית."
-                : "אפשר לצלם שוב, או למלא ידנית."}
+                ? "לצלם שוב מקרוב, או להקליד ידנית"
+                : "לצלם שוב, או להקליד ידנית"}
             </p>
           </div>
           <div className="wk-scan-actions">
             <CameraButton label="צילום מחדש" onFile={onRetake} />
-            <Button variant="secondary" size="touch" onClick={onManual}>מילוי ידני</Button>
+            <Button variant="secondary" size="touch" onClick={onManual}>הקלדה ידנית</Button>
           </div>
         </div>
       ) : null}

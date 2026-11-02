@@ -3,19 +3,18 @@
 import Link, { useLinkStatus } from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Icon, type IconName, type Tone } from "@/components/ui/Icon";
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { Input } from "@/components/ui/Input";
-import { Mark } from "@/components/ui/Mark";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { cx } from "@/components/ui/cx";
 import { fmtQty } from "@/lib/format";
+import type { Product } from "@/lib/store";
 import "./worker.css";
 
 /* ── Thinking: the one sign that the system is working ───────── */
 export function ThinkingMark(): ReactElement {
-  return <span className="wk-think" aria-hidden="true"><i /><i /><i /></span>;
+  return <span className="wk-think" aria-hidden="true" />;
 }
 
 /** Stays out of the way on a good connection; speaks up when an answer is taking long. */
@@ -46,7 +45,7 @@ export function Thinking({ label, longLabel = "עוד רגע" }: { label: string
 export function Boot({ label = "טוען את המערכת" }: { label?: string }): ReactElement {
   return (
     <main className="wk-boot">
-      <span className="wk-sys-mark" aria-hidden="true">מ</span>
+      <span className="wk-boot-name">ניהול מלאי</span>
       <Thinking label={label} />
     </main>
   );
@@ -56,12 +55,8 @@ export function Boot({ label = "טוען את המערכת" }: { label?: string 
 export function SystemBar({ live }: { live: boolean }): ReactElement {
   return (
     <header className="wk-sys">
-      <span className="wk-sys-mark" aria-hidden="true">מ</span>
       <span className="wk-sys-name">ניהול מלאי</span>
-      <span className={cx("wk-live", live && "is-live")}>
-        <span className="wk-live-dot" aria-hidden="true" />
-        {live ? "מחובר" : "מתחבר"}
-      </span>
+      {live ? null : <span className="wk-live" role="status">מתחבר</span>}
     </header>
   );
 }
@@ -72,13 +67,13 @@ function BigActionEnd(): ReactElement {
   return pending ? <ThinkingMark /> : <Icon name="chevron-left" className="sa-bigaction-chev" />;
 }
 
-export function BigAction({ title, sub, icon, tone, href }: { title: string; sub?: string; icon: IconName; tone: Tone; href: string }): ReactElement {
+export function BigAction({ title, sub, icon, href }: { title: string; sub?: string; icon: IconName; href: string }): ReactElement {
   return (
     <Link href={href} className="sa-bigaction">
-      <Mark tone={tone} icon={icon} size="lg" />
+      <Icon name={icon} className="sa-bigaction-icon" />
       <span className="sa-bigaction-body">
-        <span className="sa-bigaction-title" style={{ display: "block" }}>{title}</span>
-        {sub ? <span className="sa-bigaction-sub" style={{ display: "block" }}>{sub}</span> : null}
+        <span className="sa-bigaction-title">{title}</span>
+        {sub ? <span className="sa-bigaction-sub">{sub}</span> : null}
       </span>
       <BigActionEnd />
     </Link>
@@ -117,12 +112,10 @@ export type CtaProps = {
   blocked?: { reason: string; onTap: () => void } | null;
   /** While set, the system is working and this says on what. */
   busy?: string | null;
-  icon?: IconName;
-  iconEnd?: IconName;
 };
 
 /** The one next step: its button, and in plain words why it isn't available yet. */
-export function Cta({ label, onClick, blocked, busy, icon, iconEnd }: CtaProps): ReactElement {
+export function Cta({ label, onClick, blocked, busy }: CtaProps): ReactElement {
   const stuck = blocked && !busy ? blocked : null;
   return (
     <>
@@ -132,8 +125,6 @@ export function Cta({ label, onClick, blocked, busy, icon, iconEnd }: CtaProps):
       <Button
         variant="primary"
         size="touch"
-        icon={busy || stuck ? undefined : icon}
-        iconEnd={busy || stuck ? undefined : iconEnd}
         disabled={!!busy}
         aria-busy={busy ? true : undefined}
         aria-disabled={stuck ? true : undefined}
@@ -145,6 +136,9 @@ export function Cta({ label, onClick, blocked, busy, icon, iconEnd }: CtaProps):
     </>
   );
 }
+
+/** The last button of a step and the save button are one DOM node, so a double tap must not reach the next step. */
+const STEP_GUARD_MS = 500;
 
 export function Flow({ flow, steps, current, dir, title, lead, onBack, foot, overlay, children }: {
   /** The process this is, shown above the title. */
@@ -163,23 +157,28 @@ export function Flow({ flow, steps, current, dir, title, lead, onBack, foot, ove
 }): ReactElement {
   const router = useRouter();
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const steppedAt = useRef(0);
   const index = steps.findIndex((s) => s.key === current);
 
   useEffect(() => { router.prefetch("/worker"); }, [router]);
   useEffect(() => {
+    steppedAt.current = performance.now();
     window.scrollTo(0, 0);
     titleRef.current?.focus({ preventScroll: true });
   }, [current]);
+
+  const press = () => {
+    if (performance.now() - steppedAt.current >= STEP_GUARD_MS) foot.onClick();
+  };
 
   return (
     <>
       <div className="wk-bar">
         <div className="wk-bar-top">
           <button type="button" className="wk-back" onClick={onBack}>
-            <Icon name="arrow-right" />
+            <Icon name="chevron-right" />
             <span>חזרה</span>
           </button>
-          <span className="wk-step">שלב {index + 1} מתוך {steps.length}</span>
         </div>
         <ol className="wk-progress" aria-label={`התקדמות: שלב ${index + 1} מתוך ${steps.length}`}>
           {steps.map((s, i) => (
@@ -198,31 +197,30 @@ export function Flow({ flow, steps, current, dir, title, lead, onBack, foot, ove
         </header>
         {children}
       </main>
-      <div className="wk-foot"><div><Cta {...foot} /></div></div>
+      <div className="wk-foot"><div><Cta {...foot} onClick={press} /></div></div>
       {overlay}
     </>
   );
 }
 
 /* ── Section: one thing to do on a step ──────────────────────── */
-export function Section({ id, n, title, lead, need, done, children }: {
+export function Section({ id, title, lead, need, done, children }: {
   id?: string;
-  n: number;
   title: string;
-  /** Why this is asked, or what happens with it. */
+  /** What happens with it, when the title doesn't say. */
   lead?: ReactNode;
   need: "required" | "optional";
   done?: boolean;
   children: ReactNode;
 }): ReactElement {
   return (
-    <section id={id} className={cx("wk-section", done && "is-done")}>
+    <section id={id} className="wk-section">
       <header className="wk-section-head">
-        <span className="wk-section-n" aria-hidden="true">{done ? <Icon name="check" size={16} strokeWidth={3} /> : n}</span>
+        {done ? <span className="wk-section-check" aria-hidden="true"><Icon name="check" size={18} /></span> : null}
         <div className="wk-section-text">
           <div className="wk-section-titles">
             <h2 className="wk-section-title">{title}</h2>
-            <span className={cx("wk-need", need === "required" && "is-required")}>{need === "required" ? "חובה" : "לא חובה"}</span>
+            {need === "optional" ? <span className="wk-need">לא חובה</span> : null}
           </div>
           {lead ? <p className="wk-section-lead">{lead}</p> : null}
         </div>
@@ -250,7 +248,7 @@ export function StepHead({ title, onBack }: { title: string; onBack: () => void 
   return (
     <header className="wk-head">
       <button type="button" className="wk-back" onClick={onBack}>
-        <Icon name="arrow-right" />
+        <Icon name="chevron-right" />
         <span>חזרה</span>
       </button>
       <h1 className="wk-head-title">{title}</h1>
@@ -270,12 +268,11 @@ export function CameraButton({ label, onFile, quiet }: { label: string; onFile: 
 }
 
 /* ── Tall choice row ─────────────────────────────────────────── */
-export function Row({ title, sub, end, selected, quiet, onClick, icon, badge }: { title: ReactNode; sub?: ReactNode; end?: ReactNode; selected?: boolean; quiet?: boolean; icon?: IconName; badge?: string; onClick: () => void }): ReactElement {
+export function Row({ title, sub, end, selected, quiet, onClick }: { title: ReactNode; sub?: ReactNode; end?: ReactNode; selected?: boolean; quiet?: boolean; onClick: () => void }): ReactElement {
   return (
     <button type="button" className={cx("wk-row", selected && "is-selected", quiet && "is-quiet")} onClick={onClick}>
-      {icon ? <Icon name={icon} size={20} /> : null}
       <span className="wk-row-body">
-        <span className="wk-row-title">{title}{badge ? <Badge tone="accent">{badge}</Badge> : null}</span>
+        <span className="wk-row-title">{title}</span>
         {sub ? <span className="wk-row-sub">{sub}</span> : null}
       </span>
       {end !== undefined ? <span className="wk-row-end">{end}</span> : selected ? <Icon name="check" size={20} className="wk-row-end" /> : null}
@@ -284,12 +281,21 @@ export function Row({ title, sub, end, selected, quiet, onClick, icon, badge }: 
 }
 
 /* ── Full-screen searchable picker ───────────────────────────── */
-export type PickItem = { id: string; title: string; sub?: string; keywords?: string; end?: ReactNode };
+export type PickItem = { id: string; title: string; sub?: ReactNode; keywords?: string; end?: ReactNode };
 
-export function Picker({ title, lead, context, items, onPick, onClose, placeholder = "חיפוש…", extra, emptyTitle = "אין פריטים", emptyHint }: {
+/** A warehouse product as a picker row. `stock` shows how much is on hand, for the flows that take from it. */
+export function productPick(p: Product, stock = false): PickItem {
+  return {
+    id: p.id,
+    title: p.name,
+    sub: <span className="sa-num">{p.sku}</span>,
+    keywords: `${p.sku} ${p.barcode ?? ""}`,
+    end: stock ? <span>במלאי <span className="sa-num">{fmtQty(p.qty)}</span> {p.unit}</span> : undefined,
+  };
+}
+
+export function Picker({ title, context, items, onPick, onClose, placeholder = "חיפוש…", extra, emptyTitle = "אין פריטים" }: {
   title: string;
-  /** What to do on this screen. */
-  lead?: string;
   /** What the worker is looking for, e.g. the wording on the receipt. */
   context?: string;
   items: PickItem[];
@@ -297,9 +303,8 @@ export function Picker({ title, lead, context, items, onPick, onClose, placehold
   onClose: () => void;
   placeholder?: string;
   /** An extra quiet row at the end, e.g. "לא יודע". */
-  extra?: { label: string; onClick: () => void };
+  extra?: { label: string; icon?: IconName; onClick: () => void };
   emptyTitle?: string;
-  emptyHint?: string;
 }): ReactElement {
   const [q, setQ] = useState("");
   useEffect(() => {
@@ -312,18 +317,17 @@ export function Picker({ title, lead, context, items, onPick, onClose, placehold
   const filtered = useMemo(() => {
     const n = q.trim().toLowerCase();
     if (!n) return items;
-    return items.filter((it) => `${it.title} ${it.sub ?? ""} ${it.keywords ?? ""}`.toLowerCase().includes(n));
+    return items.filter((it) => `${it.title} ${typeof it.sub === "string" ? it.sub : ""} ${it.keywords ?? ""}`.toLowerCase().includes(n));
   }, [items, q]);
   return (
     <div className="wk-sheet" role="dialog" aria-modal="true" aria-label={title}>
       <div className="wk-sheet-inner">
         <StepHead title={title} onBack={onClose} />
-        {lead ? <p className="wk-sheet-lead">{lead}</p> : null}
         {context ? <p className="wk-pick-context">כתוב במסמך: <strong>{context}</strong></p> : null}
         <Input size="touch" icon="search" placeholder={placeholder} value={q} onChange={(e) => setQ(e.target.value)} aria-label={placeholder} autoComplete="off" />
         <div className="wk-sheet-list">
-          {filtered.length === 0 ? <EmptyState title={emptyTitle} hint={emptyHint} /> : filtered.map((it) => <Row key={it.id} title={it.title} sub={it.sub} end={it.end} onClick={() => onPick(it.id)} />)}
-          {extra ? <Row quiet title={extra.label} onClick={extra.onClick} /> : null}
+          {filtered.length === 0 ? <EmptyState title={emptyTitle} /> : filtered.map((it) => <Row key={it.id} title={it.title} sub={it.sub} end={it.end} onClick={() => onPick(it.id)} />)}
+          {extra ? <Row quiet title={extra.label} end={extra.icon ? <Icon name={extra.icon} size={20} /> : undefined} onClick={extra.onClick} /> : null}
         </div>
       </div>
     </div>
@@ -360,25 +364,23 @@ export function Summary({ heading, meta = [], lines }: { heading?: string; meta?
 const RETURN_MS = 8000;
 
 /* ── Full-screen confirmation, returns home on its own ───────── */
-export function Done({ title, sub, note, lines, tone = "success" }: { title: string; sub?: string; /** What happens next. */ note?: string; lines: SummaryLine[]; tone?: Tone }): ReactElement {
+export function Done({ title, sub, lines }: { title: string; sub?: string; lines: SummaryLine[] }): ReactElement {
   const router = useRouter();
   useEffect(() => {
     router.prefetch("/worker");
     const t = setTimeout(() => router.replace("/worker"), RETURN_MS);
     return () => clearTimeout(t);
   }, [router]);
-  const bg = tone === "success" ? "var(--success)" : tone === "accent" ? "var(--accent)" : "var(--bg-inverse)";
-  const on = tone === "success" ? "var(--on-success)" : tone === "accent" ? "var(--on-accent)" : "var(--text-inverse)";
   return (
     <div className="wk-done" role="status" aria-live="polite">
       <div className="wk-done-inner">
-        <span className="wk-done-mark" style={{ background: bg, color: on }}><Icon name="check" strokeWidth={3} /></span>
+        <span className="wk-done-mark"><Icon name="check" /></span>
         <h1 className="wk-done-title">{title}</h1>
         {sub ? <p className="wk-done-sub">{sub}</p> : null}
-        {note ? <p className="wk-done-note">{note}</p> : null}
         <Summary lines={lines} />
-        <Button variant="primary" size="touch" onClick={() => router.replace("/worker")}>חזרה למסך הראשי</Button>
-        <div className="wk-done-bar" aria-hidden="true"><span style={{ animationDuration: `${RETURN_MS}ms` }} /></div>
+        <div className="wk-done-foot">
+          <Button variant="primary" size="touch" onClick={() => router.replace("/worker")}>חזרה למסך הראשי</Button>
+        </div>
       </div>
     </div>
   );
