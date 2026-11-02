@@ -12,6 +12,11 @@ export default function WorkerHome() {
   const { worker, workers, ready, choose } = useCurrentWorker();
   const [retrying, setRetrying] = useState(false);
 
+  const logout = async () => {
+    await fetch("/api/login/logout", { method: "POST" }).catch(() => undefined);
+    window.location.replace("/login");
+  };
+
   if (!ready) return <Boot />;
 
   if (state.status === "error") {
@@ -72,6 +77,7 @@ export default function WorkerHome() {
         <div className="wk-who-links">
           <button type="button" className="wk-textlink" onClick={() => choose(null)}>החלפת עובד</button>
           <ThemeSettingsButton variant="text" />
+          <button type="button" className="wk-textlink wk-logout" onClick={logout}>יציאה</button>
         </div>
       </div>
     </main>
