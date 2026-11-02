@@ -18,7 +18,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="he" dir="rtl" data-theme="light" className="h-full antialiased" suppressHydrationWarning>
+    <html lang="he" dir="rtl" data-theme="minimal" className="h-full antialiased" suppressHydrationWarning>
       <head>
         {/* Applies the saved theme before first paint; see src/lib/theme.tsx. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />

@@ -7,7 +7,8 @@
  * The choice is one id ("light", "dark", "minimal", "minimal-dark") in localStorage
  * ("sa-theme"), mirrored to <html data-theme="…">; a tiny inline script in the root
  * layout applies it before first paint so there is no flash.
- * Older saved values ("classic", "modern", "modern-dark") still resolve.
+ * Minimal is the default. A saved choice stays; older saved values ("classic", "modern",
+ * "modern-dark") still resolve to the classic style they meant.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from "react";
 
@@ -26,7 +27,7 @@ export const THEME_MODES: readonly { id: ThemeMode; label: string }[] = [
 ] as const;
 
 export const THEME_STORAGE_KEY = "sa-theme";
-export const DEFAULT_THEME: ThemeId = "light";
+export const DEFAULT_THEME: ThemeId = "minimal";
 
 /** The id is style and mode in one word; these take it apart and put it back together. */
 export function splitTheme(id: ThemeId): { style: ThemeStyle; mode: ThemeMode } {
@@ -43,12 +44,13 @@ export function joinTheme(style: ThemeStyle, mode: ThemeMode): ThemeId {
 
 function resolve(v: string | null): ThemeId {
   if (v === "dark" || v === "modern-dark") return "dark";
-  if (v === "minimal" || v === "minimal-dark") return v;
-  return "light";
+  if (v === "light" || v === "classic" || v === "modern") return "light";
+  if (v === "minimal-dark") return v;
+  return DEFAULT_THEME;
 }
 
 /** Runs before hydration; keep it tiny and self-contained (no imports). Mirrors resolve(). */
-export const THEME_BOOT_SCRIPT = `(function(){try{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});document.documentElement.setAttribute("data-theme",t==="dark"||t==="modern-dark"?"dark":t==="minimal"||t==="minimal-dark"?t:"light");}catch(e){}})();`;
+export const THEME_BOOT_SCRIPT = `(function(){try{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});document.documentElement.setAttribute("data-theme",t==="dark"||t==="modern-dark"?"dark":t==="light"||t==="classic"||t==="modern"?"light":t==="minimal-dark"?t:${JSON.stringify(DEFAULT_THEME)});}catch(e){}})();`;
 
 /* ── A tiny external store over localStorage ─────────────────────────────── */
 const listeners = new Set<() => void>();
