@@ -15,6 +15,11 @@ export function fmtSigned(n: number, type: "in" | "out" | "fault" | "adjust"): s
   return fmtQty(n);
 }
 
+/** Keeps "1250×2500" in its written order inside a Hebrew line, where the bidi rules would flip it. */
+export function fmtName(name: string): string {
+  return name.replace(/×/g, "\u200e×\u200e");
+}
+
 const pad = (n: number) => String(n).padStart(2, "0");
 
 export function fmtTime(iso: string): string {

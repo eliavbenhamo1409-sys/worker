@@ -638,6 +638,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         qty: input.qty ?? 0, min_qty: input.min_qty ?? 0, location: input.location ?? null,
         primary_supplier_id: input.primary_supplier_id ?? null, notes: input.notes ?? null, created_at: now, updated_at: now,
         barcode: input.barcode?.trim() || null, // the DB assigns an EAN-13 when empty
+        reserved: 0, in_catalog: input.in_catalog ?? true, description: input.description ?? null,
+        price: input.price ?? null, image_path: input.image_path ?? null,
       };
       return (await insert("products", input, optimistic)) as Product;
     },

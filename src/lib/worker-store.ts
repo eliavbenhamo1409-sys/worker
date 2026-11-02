@@ -2,11 +2,12 @@
 
 /**
  * Worker-app helpers layered on top of the shared data store:
- * the remembered worker, recent customers and delivery-note photo uploads.
+ * the remembered worker, recent customers, delivery-note photo uploads and open orders.
  * Nothing here touches store.tsx.
  */
 
-import { useCallback, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import type { QueryData } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 import { useData, type DocumentInput } from "@/lib/store";
 
@@ -141,6 +142,41 @@ export function useReceiptUpload(kind: DocumentInput["kind"]) {
   }, [kind, start, createDocument]);
 
   return { start, save };
+}
+
+const openOrdersQuery = () => supabase().from("orders").select("*, order_lines(*), agents(name)").eq("status", "open").order("created_at", { ascending: true });
+
+/** An agent's order waiting to leave the warehouse, with its lines and agent. */
+export type OpenOrder = QueryData<ReturnType<typeof openOrdersQuery>>[number];
+
+/** The open orders as of opening the screen, oldest first. Read once: the database refuses a stale one. */
+export function useOpenOrders() {
+  const [orders, setOrders] = useState<OpenOrder[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void openOrdersQuery().then(({ data }) => {
+      if (alive && data) setOrders(data);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  /** Read the list again, after the database refused an order that someone else closed. */
+  const refresh = useCallback(async () => {
+    const { data } = await openOrdersQuery();
+    if (data) setOrders(data);
+  }, []);
+  return { orders, refresh };
+}
+
+/** The order left the warehouse: the database posts its movements and releases the hold, or throws its own message. */
+export async function deliverOrder(orderId: string, workerId: string, documentId: string | null): Promise<void> {
+  const { error } = await supabase().rpc("deliver_order", {
+    target_order: orderId,
+    by_worker: workerId,
+    ...(documentId ? { receipt: documentId } : {}),
+  });
+  if (error) throw new Error(error.message);
 }
 
 /** Storage bucket for fault photos (public read). Must exist in the Supabase project. */

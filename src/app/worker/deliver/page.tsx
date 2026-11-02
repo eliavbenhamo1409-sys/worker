@@ -9,11 +9,11 @@ import { Input } from "@/components/ui/Input";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { cx } from "@/components/ui/cx";
 import { useData } from "@/lib/store";
-import { useCurrentWorker, useRecentCustomers, useReceiptUpload } from "@/lib/worker-store";
+import { deliverOrder, useCurrentWorker, useOpenOrders, useRecentCustomers, useReceiptUpload, type OpenOrder } from "@/lib/worker-store";
 import type { ScannedLine } from "@/lib/worker/ocr";
 import { useDocumentScan, type ReadLine } from "@/lib/worker/scan";
 import { buildDictionary, matchLine, type Candidate } from "@/lib/worker/match";
-import { fmtQty } from "@/lib/format";
+import { fmtName, fmtQty } from "@/lib/format";
 import { Boot, CameraButton, Cta, Done, Flow, Hint, Picker, Row, Section, StepHead, Summary, pointAt, productPick, useBackToClose, useSteps, type PickItem, type SummaryLine } from "@/components/worker";
 import { Scanner } from "@/components/worker/Scanner";
 
@@ -31,6 +31,8 @@ const newLine = (partial: Partial<Line> = {}): Line => ({ id: Math.random().toSt
 const unanswered = (l: Line) => !!l.hint && !l.productId && !l.route;
 const routedTitle = (l: Line) => l.proposedName ?? l.hint ?? "";
 const routedSub = (l: Line) => (l.route === "new" ? "מוצר חדש, אצל המנהל" : "אצל המנהל");
+/** The database refuses in Hebrew; anything else is the connection talking. */
+const HEBREW = /[א-ת]/;
 
 /** The worker asks to add a product to the warehouse dictionary; the manager approves it later. */
 function AddToDictionary({ initialName, initialNote, onSubmit, onClose }: { initialName: string; initialNote: string; onSubmit: (name: string, note: string) => void; onClose: () => void }) {
@@ -62,8 +64,11 @@ export default function DeliverPage() {
   const { step, dir, go } = useSteps(ORDER, "start");
   const { scan, start: startScan, close: closeScan } = useDocumentScan();
   const receipt = useReceiptUpload("out");
+  const { orders, refresh } = useOpenOrders();
 
   const [customer, setCustomer] = useState("");
+  /** The agent's order these goods leave under. It replaces the lines, so the stock can't drop twice. */
+  const [chosen, setChosen] = useState<OpenOrder | null>(null);
   const [lines, setLines] = useState<Line[]>([newLine()]);
   const [pickFor, setPickFor] = useState<string | null>(null);
   const [addFor, setAddFor] = useState<string | null>(null);
@@ -94,13 +99,13 @@ export default function DeliverPage() {
     return newLine({ productId: m.status === "sure" ? m.productId : null, qty: Math.max(1, Math.round(l.qty)), hint: l.externalName, candidates, scanned: true });
   }, [dictionary]);
 
-  /* ── receipt photo: preview now, OCR to prefill lines, upload when continuing ── */
+  /* ── receipt photo: preview now, OCR to prefill lines, upload when continuing; with an order it is only attached ── */
   const onPhoto = useCallback((file: File | undefined) => {
     if (!file) return;
     setReadCount(null);
     setPhoto((prev) => { if (prev) URL.revokeObjectURL(prev.url); return { file, url: URL.createObjectURL(file) }; });
-    void startScan(file, { dictionary, products: state.products });
-  }, [dictionary, startScan, state.products]);
+    if (!chosen) void startScan(file, { dictionary, products: state.products });
+  }, [chosen, dictionary, startScan, state.products]);
 
   const startUpload = () => { if (photo) receipt.start(photo.file); };
 
@@ -132,6 +137,22 @@ export default function DeliverPage() {
   const open = lines.filter(unanswered).length;
   const name = customer.trim();
 
+  /** A tap takes the order's customer too, so a second tap clears both and the other orders come back. A message about the last order no longer applies. */
+  const chooseOrder = (order: OpenOrder | null) => {
+    setChosen(order);
+    setError(null);
+    setCustomer(order?.customer ?? "");
+  };
+  /** An order belongs to its customer, so another name lets go of it. */
+  const changeCustomer = (value: string) => {
+    if (chosen && value.trim() !== name) chooseOrder(null);
+    setCustomer(value);
+  };
+  const orderLines = (order: OpenOrder): SummaryLine[] => order.order_lines.map((l) => {
+    const p = product(l.product_id);
+    return { key: l.id, title: p ? fmtName(p.name) : "—", sub: p?.sku, qty: l.qty, unit: p?.unit };
+  });
+
   /** Reading finished and the worker agreed: the lines land on the items step. */
   const takeReading = () => {
     if (scan.status !== "read") return;
@@ -162,7 +183,7 @@ export default function DeliverPage() {
         if (saved.current.has(l.id)) continue;
         const p = product(l.productId)!;
         await issue({ productId: p.id, qty: l.qty, workerId: worker.id, note, documentId });
-        saved.current.set(l.id, { key: l.id, title: p.name, sub: p.sku, qty: l.qty, unit: p.unit });
+        saved.current.set(l.id, { key: l.id, title: fmtName(p.name), sub: p.sku, qty: l.qty, unit: p.unit });
         setProgress(saved.current.size);
       }
       for (const l of routed) {
@@ -185,12 +206,31 @@ export default function DeliverPage() {
     }
   };
 
+  /** The database posts the whole order in one call, so there are no lines to guard on a retry. */
+  const submitOrder = async () => {
+    if (!worker || !chosen) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const documentId = photo ? await receipt.save(photo.file, { customer: name, reference: `הזמנה ${chosen.number}`, workerId: worker.id }) : null;
+      await deliverOrder(chosen.id, worker.id, documentId);
+      remember(name);
+      setResult({ issued: orderLines(chosen), routed: [] });
+      go("done");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      void refresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (!ready || !worker) return <Boot />;
   if (step === "done" && result) {
     return (
       <Done
-        title={result.issued.length ? "ההוצאה נשמרה" : "הועבר למנהל"}
-        sub={`ללקוח: ${name}`}
+        title={chosen || result.issued.length ? "ההוצאה נשמרה" : "הועבר למנהל"}
+        sub={chosen ? `הזמנה ${chosen.number} ללקוח: ${name}` : `ללקוח: ${name}`}
         lines={[...result.issued, ...result.routed]}
       />
     );
@@ -198,8 +238,11 @@ export default function DeliverPage() {
 
   const back = () => {
     if (step === "start") router.replace("/worker");
-    else if (step === "lines") go("start");
-    else go("lines");
+    else if (step === "lines" || chosen) {
+      // An order someone else closed meanwhile can't stay chosen.
+      if (chosen && !orders.some((o) => o.id === chosen.id)) chooseOrder(null);
+      go("start");
+    } else go("lines");
   };
 
   const pickContext = lines.find((l) => l.id === pickFor)?.hint;
@@ -231,6 +274,7 @@ export default function DeliverPage() {
   );
 
   if (step === "start") {
+    const matching = orders.filter((o) => o.customer.toLowerCase().includes(name.toLowerCase()));
     return (
       <Flow
         flow="הוצאת סחורה ללקוח"
@@ -241,20 +285,33 @@ export default function DeliverPage() {
         title="למי מסרת את הסחורה?"
         overlay={overlay}
         foot={{
-          label: photo ? "המשך לשורות" : "המשך בלי קבלה",
-          onClick: () => { startUpload(); go("lines"); },
+          label: chosen ? "המשך לאישור" : photo ? "המשך לשורות" : "המשך בלי קבלה",
+          onClick: () => { startUpload(); go(chosen ? "summary" : "lines"); },
           blocked: name ? null : { reason: "חסר שם לקוח", onTap: () => pointAt("customer") },
         }}
       >
         <Section id="customer" title="שם הלקוח" need="required" done={!!name}>
-          <Input size="touch" aria-label="שם הלקוח" placeholder="לדוגמה: מסגריית כהן" value={customer} onChange={(e) => setCustomer(e.target.value)} autoComplete="off" />
+          <Input size="touch" aria-label="שם הלקוח" placeholder="לדוגמה: מסגריית כהן" value={customer} onChange={(e) => changeCustomer(e.target.value)} autoComplete="off" />
           {recent.length ? (
             <div className="wk-recent-list">
-              {recent.map((c) => <button key={c} type="button" className={cx("wk-recent-item", c === name && "is-selected")} onClick={() => setCustomer(c)}>{c}</button>)}
+              {recent.map((c) => <button key={c} type="button" className={cx("wk-recent-item", c === name && "is-selected")} onClick={() => changeCustomer(c)}>{c}</button>)}
             </div>
           ) : null}
         </Section>
-        <Section id="receipt" title="צילום הקבלה" need="optional" done={!!photo} lead="השורות יתמלאו לבד">
+        {matching.length ? (
+          <Section title="הזמנות פתוחות" need="required">
+            {matching.map((o) => (
+              <Row
+                key={o.id}
+                title={o.customer}
+                sub={`הזמנה ${o.number} · ${o.order_lines.length === 1 ? "שורה אחת" : `${o.order_lines.length} שורות`} · ${o.agents.name}`}
+                selected={o.id === chosen?.id}
+                onClick={() => chooseOrder(o.id === chosen?.id ? null : o)}
+              />
+            ))}
+          </Section>
+        ) : null}
+        <Section id="receipt" title="צילום הקבלה" need="optional" done={!!photo} lead={chosen ? undefined : "השורות יתמלאו לבד"}>
           {!name ? (
             <button type="button" className="wk-photo is-locked" onClick={() => pointAt("customer")}>קודם שם לקוח</button>
           ) : photo ? (
@@ -264,7 +321,7 @@ export default function DeliverPage() {
                 <img src={photo.url} alt="תצלום הקבלה" />
                 <p className="wk-shot-text">
                   הקבלה צולמה
-                  <span>{readCount === null ? "לא נקראו שורות" : readCount === 1 ? "נקראה שורה אחת" : `נקראו ${readCount} שורות`}</span>
+                  {chosen ? null : <span>{readCount === null ? "לא נקראו שורות" : readCount === 1 ? "נקראה שורה אחת" : `נקראו ${readCount} שורות`}</span>}
                 </p>
                 <button type="button" className="wk-textlink" onClick={removePhoto}>הסרה</button>
               </div>
@@ -302,6 +359,7 @@ export default function DeliverPage() {
           {lines.map((l, i) => {
             const p = product(l.productId);
             const over = p ? l.qty > p.qty : false;
+            const held = p && !over ? l.qty > p.qty - p.reserved : false;
             const unknown = !p && !!l.hint;
             return (
               <article key={l.id} id={`line-${l.id}`} className="wk-line">
@@ -319,7 +377,7 @@ export default function DeliverPage() {
                   </div>
                 ) : (
                   <Row
-                    title={p ? p.name : "בחירת מוצר"}
+                    title={p ? fmtName(p.name) : "בחירת מוצר"}
                     sub={p ? <><span className="sa-num">{p.sku}</span>{l.hint ? ` · בקבלה: ${l.hint}` : ""}</> : undefined}
                     selected={!!p}
                     end={<Icon name="chevron-left" size={20} />}
@@ -348,9 +406,9 @@ export default function DeliverPage() {
                   </div>
                 ) : null}
                 {p ? (
-                  <div className={cx("wk-status", !over && "is-muted")}>
-                    {over ? <Dot tone="warning" /> : null}
-                    <span>במלאי <span className="sa-num">{fmtQty(p.qty)}</span> {p.unit}{over ? ", הכמות גדולה מהמלאי" : ""}</span>
+                  <div className={cx("wk-status", !over && !held && "is-muted")}>
+                    {over || held ? <Dot tone="warning" /> : null}
+                    <span>במלאי <span className="sa-num">{fmtQty(p.qty)}</span> {p.unit}{p.reserved > 0 ? <> · משוריין <span className="sa-num">{fmtQty(p.reserved)}</span></> : null}{over ? ", הכמות גדולה מהמלאי" : held ? ", חלק מהכמות משוריין" : ""}</span>
                   </div>
                 ) : null}
                 <div className="wk-qty-row">
@@ -375,10 +433,11 @@ export default function DeliverPage() {
     );
   }
 
-  const issuedLines: SummaryLine[] = valid.map((l) => { const p = product(l.productId)!; return { key: l.id, title: p.name, sub: p.sku, qty: l.qty, unit: p.unit }; });
-  const routedLines: SummaryLine[] = routed.map((l) => ({ key: l.id, title: routedTitle(l), sub: routedSub(l), qty: l.qty }));
-  const anyOver = valid.some((l) => { const p = product(l.productId); return p ? l.qty > p.qty : false; });
-  const total = valid.length + routed.length;
+  const issuedLines: SummaryLine[] = chosen ? orderLines(chosen) : valid.map((l) => { const p = product(l.productId)!; return { key: l.id, title: fmtName(p.name), sub: p.sku, qty: l.qty, unit: p.unit }; });
+  const routedLines: SummaryLine[] = chosen ? [] : routed.map((l) => ({ key: l.id, title: routedTitle(l), sub: routedSub(l), qty: l.qty }));
+  const leaving = chosen ? chosen.order_lines.map((l) => ({ productId: l.product_id, qty: l.qty })) : valid;
+  const anyOver = leaving.some((l) => { const p = product(l.productId); return p ? l.qty > p.qty : false; });
+  const total = chosen ? 1 : valid.length + routed.length;
   return (
     <Flow
       flow={`הוצאה ל${name}`}
@@ -389,16 +448,17 @@ export default function DeliverPage() {
       title="בדיקה ואישור"
       lead="עדיין לא נשמר כלום"
       overlay={overlay}
-      foot={{ label: valid.length ? "אישור ההוצאה" : "העברה למנהל", onClick: submit, busy: busy ? (total > 1 ? `שומר ${Math.min(progress + 1, total)} מתוך ${total}` : "שומר") : null }}
+      foot={{ label: chosen || valid.length ? "אישור ההוצאה" : "העברה למנהל", onClick: chosen ? submitOrder : submit, busy: busy ? (total > 1 ? `שומר ${Math.min(progress + 1, total)} מתוך ${total}` : "שומר") : null }}
     >
-      {error ? <Hint tone="attention" title="לא נשמר. לבדוק אינטרנט וללחוץ שוב." /> : null}
+      {error ? <Hint tone="attention" title={chosen && HEBREW.test(error) ? error : "לא נשמר. לבדוק אינטרנט וללחוץ שוב."} /> : null}
       {anyOver ? <Hint tone="attention" title="הכמות גדולה מהמלאי" /> : null}
       <Summary
         heading="פרטי ההוצאה"
         meta={[
           { k: "לקוח", v: name },
+          ...(chosen ? [{ k: "הזמנה", v: chosen.number }, { k: "סוכן", v: chosen.agents.name }] : []),
           ...(photo ? [{ k: "קבלה", v: "צולמה" }] : []),
-          ...(services.length ? [{ k: "עבודות", v: services.map((sv) => `${sv.externalName}${sv.qty !== 1 ? ` ×${sv.qty}` : ""}`).join(", ") }] : []),
+          ...(services.length && !chosen ? [{ k: "עבודות", v: services.map((sv) => `${sv.externalName}${sv.qty !== 1 ? ` ×${sv.qty}` : ""}`).join(", ") }] : []),
         ]}
         lines={[]}
       />

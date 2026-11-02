@@ -12,6 +12,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      agents: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          phone: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          phone?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string | null
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           created_at: string
@@ -182,18 +206,119 @@ export type Database = {
           },
         ]
       }
+      order_lines: {
+        Row: {
+          id: string
+          movement_id: string | null
+          order_id: string
+          product_id: string
+          qty: number
+          unit_price: number | null
+        }
+        Insert: {
+          id?: string
+          movement_id?: string | null
+          order_id: string
+          product_id: string
+          qty: number
+          unit_price?: number | null
+        }
+        Update: {
+          id?: string
+          movement_id?: string | null
+          order_id?: string
+          product_id?: string
+          qty?: number
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_lines_movement_id_fkey"
+            columns: ["movement_id"]
+            isOneToOne: false
+            referencedRelation: "movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_lines_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          agent_id: string
+          closed_at: string | null
+          created_at: string
+          customer: string
+          customer_phone: string | null
+          id: string
+          note: string | null
+          number: number
+          request_id: string
+          status: Database["public"]["Enums"]["order_status"]
+        }
+        Insert: {
+          agent_id: string
+          closed_at?: string | null
+          created_at?: string
+          customer: string
+          customer_phone?: string | null
+          id?: string
+          note?: string | null
+          number?: never
+          request_id: string
+          status?: Database["public"]["Enums"]["order_status"]
+        }
+        Update: {
+          agent_id?: string
+          closed_at?: string | null
+          created_at?: string
+          customer?: string
+          customer_phone?: string | null
+          id?: string
+          note?: string | null
+          number?: never
+          request_id?: string
+          status?: Database["public"]["Enums"]["order_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           barcode: string | null
           category: string | null
           created_at: string
+          description: string | null
           id: string
+          image_path: string | null
+          in_catalog: boolean
           location: string | null
           min_qty: number
           name: string
           notes: string | null
+          price: number | null
           primary_supplier_id: string | null
           qty: number
+          reserved: number
           sku: string
           unit: string
           updated_at: string
@@ -202,13 +327,18 @@ export type Database = {
           barcode?: string | null
           category?: string | null
           created_at?: string
+          description?: string | null
           id?: string
+          image_path?: string | null
+          in_catalog?: boolean
           location?: string | null
           min_qty?: number
           name: string
           notes?: string | null
+          price?: number | null
           primary_supplier_id?: string | null
           qty?: number
+          reserved?: number
           sku: string
           unit?: string
           updated_at?: string
@@ -217,13 +347,18 @@ export type Database = {
           barcode?: string | null
           category?: string | null
           created_at?: string
+          description?: string | null
           id?: string
+          image_path?: string | null
+          in_catalog?: boolean
           location?: string | null
           min_qty?: number
           name?: string
           notes?: string | null
+          price?: number | null
           primary_supplier_id?: string | null
           qty?: number
+          reserved?: number
           sku?: string
           unit?: string
           updated_at?: string
@@ -421,8 +556,28 @@ export type Database = {
         Args: { request_id: string; target_product_id: string }
         Returns: Database["public"]["Tables"]["item_requests"]["Row"]
       }
+      cancel_order: {
+        Args: { target_order: string }
+        Returns: Database["public"]["Tables"]["orders"]["Row"]
+      }
+      create_order: {
+        Args: {
+          agent: string
+          customer_name: string
+          items: Json
+          order_note: string
+          phone: string
+          request: string
+        }
+        Returns: Database["public"]["Tables"]["orders"]["Row"]
+      }
+      deliver_order: {
+        Args: { by_worker?: string; receipt?: string; target_order: string }
+        Returns: Database["public"]["Tables"]["orders"]["Row"]
+      }
       ean13_check: { Args: { digits12: string }; Returns: string }
       normalize_name: { Args: { t: string }; Returns: string }
+      recount_reserved: { Args: { ids: string[] }; Returns: undefined }
     }
     Enums: {
       document_kind: "in" | "out"
@@ -431,6 +586,7 @@ export type Database = {
       item_request_status: "pending" | "approved" | "rejected"
       mapping_status: "approved" | "pending"
       movement_type: "in" | "out" | "fault" | "adjust"
+      order_status: "open" | "delivered" | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -547,6 +703,7 @@ export const Constants = {
       item_request_status: ["pending", "approved", "rejected"],
       mapping_status: ["approved", "pending"],
       movement_type: ["in", "out", "fault", "adjust"],
+      order_status: ["open", "delivered", "cancelled"],
     },
   },
 } as const

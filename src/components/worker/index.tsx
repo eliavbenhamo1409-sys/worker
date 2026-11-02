@@ -86,6 +86,9 @@ export type FlowStep = { key: string; label: string };
 /** How many sheets are open, and whether the top history entry is theirs. */
 const sheets = { open: 0, entry: false };
 
+/** How many entries a flow holds above its first step's. A skipped step holds none, so this isn't the step's place in the order. */
+const entriesAbove = (entry: { wkEntries?: number } | null) => entry?.wkEntries ?? 0;
+
 /**
  * Which step the flow is on, and which way it last moved, for the entrance direction.
  * Every step holds a history entry, so the phone's back moves one step and what was filled in stays.
@@ -107,9 +110,9 @@ export function useSteps<T extends string>(order: readonly T[], first: T) {
     if (rewound.current) return;
     rewound.current = true;
     // A reload drops the data but keeps the entries, so it starts over from the first step's entry.
-    const stale = depth(window.history.state);
+    const stale = entriesAbove(window.history.state);
     if (stale > 0) window.history.go(-stale);
-  }, [depth]);
+  }, []);
 
   useEffect(() => {
     const onPop = (e: PopStateEvent) => {
@@ -131,11 +134,11 @@ export function useSteps<T extends string>(order: readonly T[], first: T) {
       window.history.back();
     } else if (step === last) {
       // Saved: the steps leave history, so back goes home and home never reopens a finished flow.
-      const entered = depth(window.history.state);
+      const entered = entriesAbove(window.history.state);
       if (entered > 0) window.history.go(-entered);
       show(step, "forward");
     } else if (to > from) {
-      const entry = { ...window.history.state, wkStep: step };
+      const entry = { ...window.history.state, wkStep: step, wkEntries: entriesAbove(window.history.state) + 1 };
       if (sheets.entry) {
         // A sheet that ends in the next step hands it its entry, so back doesn't reopen the sheet.
         sheets.entry = false;
@@ -145,7 +148,7 @@ export function useSteps<T extends string>(order: readonly T[], first: T) {
       }
       show(step, "forward");
     }
-  }, [depth, last, order, show]);
+  }, [last, order, show]);
 
   return { step: state.step, dir: state.dir, go };
 }
