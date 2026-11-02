@@ -14,7 +14,7 @@ import type { ScannedLine } from "@/lib/worker/ocr";
 import { useDocumentScan, type ReadLine } from "@/lib/worker/scan";
 import { buildDictionary, matchLine, type Candidate } from "@/lib/worker/match";
 import { fmtQty } from "@/lib/format";
-import { Boot, CameraButton, Cta, Done, Flow, Hint, Picker, Row, Section, StepHead, Summary, pointAt, productPick, useSteps, type PickItem, type SummaryLine } from "@/components/worker";
+import { Boot, CameraButton, Cta, Done, Flow, Hint, Picker, Row, Section, StepHead, Summary, pointAt, productPick, useBackToClose, useSteps, type PickItem, type SummaryLine } from "@/components/worker";
 import { Scanner } from "@/components/worker/Scanner";
 
 type Step = "start" | "lines" | "summary" | "done";
@@ -36,6 +36,7 @@ const routedSub = (l: Line) => (l.route === "new" ? "מוצר חדש, אצל ה�
 function AddToDictionary({ initialName, initialNote, onSubmit, onClose }: { initialName: string; initialNote: string; onSubmit: (name: string, note: string) => void; onClose: () => void }) {
   const [name, setName] = useState(initialName);
   const [note, setNote] = useState(initialNote);
+  useBackToClose(onClose);
   return (
     <div className="wk-sheet" role="dialog" aria-modal="true" aria-label="מוצר חדש">
       <div className="wk-sheet-inner">
@@ -196,7 +197,7 @@ export default function DeliverPage() {
   }
 
   const back = () => {
-    if (step === "start") router.push("/worker");
+    if (step === "start") router.replace("/worker");
     else if (step === "lines") go("start");
     else go("lines");
   };

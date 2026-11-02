@@ -1,7 +1,7 @@
 "use client";
 
 import Link, { useLinkStatus } from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Icon, type IconName } from "@/components/ui/Icon";
@@ -83,13 +83,99 @@ export function BigAction({ title, sub, icon, href }: { title: string; sub?: str
 /* ── Flow: the frame of every process ────────────────────────── */
 export type FlowStep = { key: string; label: string };
 
-/** Which step the flow is on, and which way it last moved, for the entrance direction. */
+/** How many sheets are open, and whether the top history entry is theirs. */
+const sheets = { open: 0, entry: false };
+
+/**
+ * Which step the flow is on, and which way it last moved, for the entrance direction.
+ * Every step holds a history entry, so the phone's back moves one step and what was filled in stays.
+ */
 export function useSteps<T extends string>(order: readonly T[], first: T) {
   const [state, setState] = useState<{ step: T; dir: "forward" | "back" }>({ step: first, dir: "forward" });
+  /** The step as of now: popstate and a finished save can both land before the render. */
+  const now = useRef(first);
+  const rewound = useRef(false);
+  const last = order[order.length - 1];
+
+  const depth = useCallback((entry: { wkStep?: T } | null) => order.indexOf(entry?.wkStep ?? first), [order, first]);
+  const show = useCallback((step: T, dir: "forward" | "back") => {
+    now.current = step;
+    setState({ step, dir });
+  }, []);
+
+  useEffect(() => {
+    if (rewound.current) return;
+    rewound.current = true;
+    // A reload drops the data but keeps the entries, so it starts over from the first step's entry.
+    const stale = depth(window.history.state);
+    if (stale > 0) window.history.go(-stale);
+  }, [depth]);
+
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => {
+      // A saved flow sits on the first step's entry.
+      const from = now.current === last ? 0 : order.indexOf(now.current);
+      const to = depth(e.state);
+      // A forward swipe would skip the checks on the step's button, so it bounces.
+      if (to > from) window.history.back();
+      else if (to < from) show(order[to], "back");
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [depth, last, order, show]);
+
   const go = useCallback((step: T) => {
-    setState((s) => ({ step, dir: order.indexOf(step) < order.indexOf(s.step) ? "back" : "forward" }));
-  }, [order]);
+    const from = order.indexOf(now.current);
+    const to = order.indexOf(step);
+    if (to < from) {
+      window.history.back();
+    } else if (step === last) {
+      // Saved: the steps leave history, so back goes home and home never reopens a finished flow.
+      const entered = depth(window.history.state);
+      if (entered > 0) window.history.go(-entered);
+      show(step, "forward");
+    } else if (to > from) {
+      const entry = { ...window.history.state, wkStep: step };
+      if (sheets.entry) {
+        // A sheet that ends in the next step hands it its entry, so back doesn't reopen the sheet.
+        sheets.entry = false;
+        window.history.replaceState(entry, "");
+      } else {
+        window.history.pushState(entry, "");
+      }
+      show(step, "forward");
+    }
+  }, [depth, last, order, show]);
+
   return { step: state.step, dir: state.dir, go };
+}
+
+/** An open sheet holds a history entry of its own, so the phone's back closes it and leaves the flow alone. */
+export function useBackToClose(onClose: () => void, open = true): void {
+  const close = useEffectEvent(onClose);
+  useEffect(() => {
+    if (!open) return;
+    sheets.open += 1;
+    if (!sheets.entry) {
+      sheets.entry = true;
+      window.history.pushState(window.history.state, "");
+    }
+    const onPop = () => {
+      sheets.entry = false;
+      close();
+    };
+    window.addEventListener("popstate", onPop);
+    return () => {
+      sheets.open -= 1;
+      window.removeEventListener("popstate", onPop);
+      // The next sheet can take the entry over in this same commit.
+      queueMicrotask(() => {
+        if (sheets.open > 0 || !sheets.entry) return;
+        sheets.entry = false;
+        window.history.back();
+      });
+    };
+  }, [open]);
 }
 
 /** Takes the worker to what is holding them back: scrolls there and gives it a soft pulse. */
@@ -307,6 +393,7 @@ export function Picker({ title, context, items, onPick, onClose, placeholder = "
   emptyTitle?: string;
 }): ReactElement {
   const [q, setQ] = useState("");
+  useBackToClose(onClose);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", onKey);

@@ -8,7 +8,7 @@ import { cx } from "@/components/ui/cx";
 import type { Product } from "@/lib/store";
 import { fmtQty } from "@/lib/format";
 import type { ReadLine, Scan, ScanDoc, ScanStage } from "@/lib/worker/scan";
-import { CameraButton, useTakingLong } from "@/components/worker";
+import { CameraButton, useBackToClose, useTakingLong } from "@/components/worker";
 
 const STAGES: { key: ScanStage; label: string }[] = [
   { key: "prepare", label: "מכין את התמונה" },
@@ -85,6 +85,7 @@ export function Scanner({ scan, docName, unit, identify, onContinue, onManual, o
 }): ReactElement | null {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const settled = scan.status !== "idle" && scan.status !== "reading";
+  useBackToClose(onCancel, scan.status !== "idle");
   useEffect(() => {
     if (settled) headingRef.current?.focus({ preventScroll: true });
   }, [settled]);

@@ -86,7 +86,7 @@ export default function FaultPage() {
     return <Done title="הדיווח הועבר למנהל" sub={photoError ? "התמונה לא הועלתה, התקלה דווחה" : undefined} lines={lines.map((l) => ({ ...l, sub: "ייגרע מהמלאי כפגום" }))} />;
   }
 
-  const back = () => (step === "what" ? router.push("/worker") : go("what"));
+  const back = () => (step === "what" ? router.replace("/worker") : go("what"));
 
   if (step === "what") {
     return (

@@ -11,7 +11,7 @@ import { useCurrentWorker, useReceiptUpload } from "@/lib/worker-store";
 import type { ScannedLine } from "@/lib/worker/ocr";
 import { useDocumentScan, type ReadLine } from "@/lib/worker/scan";
 import { buildDictionary, matchLine, type Candidate } from "@/lib/worker/match";
-import { Boot, CameraButton, Cta, Done, Flow, Hint, Picker, Row, Section, StepHead, Summary, pointAt, productPick, useSteps, type PickItem, type SummaryLine } from "@/components/worker";
+import { Boot, CameraButton, Cta, Done, Flow, Hint, Picker, Row, Section, StepHead, Summary, pointAt, productPick, useBackToClose, useSteps, type PickItem, type SummaryLine } from "@/components/worker";
 import { Scanner } from "@/components/worker/Scanner";
 
 type Step = "start" | "lines" | "summary" | "done";
@@ -46,6 +46,7 @@ function AddSupplier({ onSubmit, onClose }: { onSubmit: (name: string) => Promis
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  useBackToClose(onClose);
   const save = async () => {
     setBusy(true);
     setFailed(false);
@@ -222,7 +223,7 @@ export default function ReceivePage() {
   }
 
   const back = () => {
-    if (step === "start") router.push("/worker");
+    if (step === "start") router.replace("/worker");
     else if (step === "lines") go("start");
     else go("lines");
   };
