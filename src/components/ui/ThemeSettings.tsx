@@ -3,10 +3,12 @@
 /**
  * "הגדרות" — a quiet link that opens a small dialog: the style (classic or minimal)
  * and the appearance (light or dark). The choice applies at once and is saved on this device.
+ * Below them, `pages` links to pages that have no row in the sidebar.
  *
- *   <ThemeSettingsButton variant="nav" />   → sidebar row (admin)
- *   <ThemeSettingsButton variant="text" />  → plain text link (worker)
+ *   <ThemeSettingsButton variant="nav" pages={…} />  → sidebar row (admin)
+ *   <ThemeSettingsButton variant="text" />           → plain text link (worker)
  */
+import Link from "next/link";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactElement } from "react";
 import { createPortal } from "react-dom";
 import { joinTheme, splitTheme, THEME_MODES, THEME_STYLES, useTheme } from "@/lib/theme";
@@ -14,12 +16,20 @@ import { Button } from "./Button";
 import { cx } from "./cx";
 import { Icon } from "./Icon";
 
+export interface SettingsPage {
+  label: string;
+  href: string;
+}
+
 export interface ThemeSettingsButtonProps {
   variant?: "nav" | "text";
+  pages?: SettingsPage[];
+  /** The current page is one of `pages`, so the sidebar has nothing else to mark. */
+  active?: boolean;
   className?: string;
 }
 
-export function ThemeSettingsButton({ variant = "nav", className }: ThemeSettingsButtonProps): ReactElement {
+export function ThemeSettingsButton({ variant = "nav", pages, active, className }: ThemeSettingsButtonProps): ReactElement {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const close = () => {
@@ -33,20 +43,21 @@ export function ThemeSettingsButton({ variant = "nav", className }: ThemeSetting
       <button
         ref={btnRef}
         type="button"
-        className={cx(variant === "nav" ? "sa-nav-item" : "sa-settings-link", className)}
+        className={cx(variant === "nav" ? "sa-nav-item" : "sa-settings-link", active && "is-active", className)}
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={open}
+        aria-current={active ? "page" : undefined}
       >
         {variant === "nav" ? <Icon name="settings" size={16} /> : null}
         <span>הגדרות</span>
       </button>
-      {open ? <SettingsDialog onClose={close} /> : null}
+      {open ? <SettingsDialog pages={pages} onClose={close} /> : null}
     </>
   );
 }
 
-function SettingsDialog({ onClose }: { onClose: () => void }): ReactElement {
+function SettingsDialog({ pages, onClose }: { pages?: SettingsPage[]; onClose: () => void }): ReactElement {
   const { theme, setTheme } = useTheme();
   const { style, mode } = splitTheme(theme);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -69,7 +80,7 @@ function SettingsDialog({ onClose }: { onClose: () => void }): ReactElement {
       return;
     }
     if (e.key !== "Tab" || !dialogRef.current) return;
-    const nodes = Array.from(dialogRef.current.querySelectorAll<HTMLElement>('button:not([tabindex="-1"])'));
+    const nodes = Array.from(dialogRef.current.querySelectorAll<HTMLElement>('a[href], button:not([tabindex="-1"])'));
     if (!nodes.length) return;
     const first = nodes[0];
     const last = nodes[nodes.length - 1];
@@ -109,6 +120,12 @@ function SettingsDialog({ onClose }: { onClose: () => void }): ReactElement {
         <div className="sa-modal-body">
           <Choice label="סגנון" options={THEME_STYLES} value={style} onChange={(s) => setTheme(joinTheme(s, mode))} />
           <Choice label="מראה" options={THEME_MODES} value={mode} onChange={(m) => setTheme(joinTheme(style, m))} />
+          {pages?.map((p) => (
+            <Link key={p.href} href={p.href} className="sa-appearance sa-appearance-link" onClick={onClose}>
+              <span className="sa-appearance-label">{p.label}</span>
+              <Icon name="chevron-left" size={16} />
+            </Link>
+          ))}
         </div>
       </div>
     </div>,
