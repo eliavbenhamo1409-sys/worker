@@ -62,19 +62,6 @@
 .wk-textlink.is-start { align-self: flex-start; padding-inline: 0; margin-block: calc(var(--space-2) * -1); }
 .wk-page .wk-textlink, .wk-line-remove { text-decoration: underline; text-decoration-color: var(--border-control); text-underline-offset: 4px; }
 
-/* ── Login ─────────────────────────────────────────────────── */
-.wk-login { display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-2); }
-.wk-phone { display: flex; gap: var(--space-2); }
-.wk-phone .sa-field { flex: 1; }
-.wk-dial { height: var(--touch-lg); display: inline-flex; align-items: center; gap: var(--space-1); padding-inline: var(--space-3); flex-shrink: 0; background: var(--bg-surface); border: 1px solid var(--border-strong); border-radius: var(--radius-lg); font-size: 18px; line-height: 26px; color: var(--text-primary); }
-.wk-dial:active { background: var(--bg-muted); }
-.wk-dial svg { width: 18px; height: 18px; color: var(--text-tertiary); }
-.wk-password .sa-input { padding-inline-end: 84px; }
-.wk-code .sa-input { text-align: center; font-size: 26px; letter-spacing: 0.25em; }
-.wk-login-links { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
-.wk-login-links .wk-textlink:disabled { color: var(--text-tertiary); }
-.wk-root:not([data-login]) .wk-logout { display: none; }
-
 /* ── Flow bar: where am I in this process ──────────────────── */
 .wk-bar { position: sticky; top: 0; z-index: 30; background: var(--bg-canvas); border-bottom: 1px solid var(--border-base); padding: env(safe-area-inset-top) var(--space-4) var(--space-2); }
 .wk-bar-top, .wk-progress { width: 100%; max-width: calc(var(--worker) - var(--space-8)); margin-inline: auto; }
