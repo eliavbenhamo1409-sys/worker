@@ -105,7 +105,7 @@ export default function FaultPage() {
         overlay={pick ? <Picker title="מוצר קשור" items={items} placeholder='חיפוש לפי שם, מק"ט או ברקוד' onPick={(id) => { setProductId(id); setPick(false); }} onClose={() => setPick(false)} emptyTitle="לא נמצאו מוצרים" /> : null}
       >
         <Section id="what" title="תיאור התקלה" need="required" done={described}>
-          <Input size="touch" multiline aria-label="תיאור התקלה" placeholder="לדוגמה: לוחות הגיעו רטובים" value={description} onChange={(e) => setDescription(e.target.value)} />
+          <Input size="touch" multiline aria-label="תיאור התקלה" placeholder="לדוגמה: אריזה הגיעה פגומה" value={description} onChange={(e) => setDescription(e.target.value)} />
         </Section>
         <Section title="תמונה" need="optional" done={!!photo}>
           {photo ? (

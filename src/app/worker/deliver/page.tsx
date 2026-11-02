@@ -43,7 +43,7 @@ function AddToDictionary({ initialName, initialNote, onSubmit, onClose }: { init
         <StepHead title="מוצר חדש" onBack={onClose} />
         <p className="wk-sheet-lead">המנהל יאשר לפני שהכמות תרד מהמלאי</p>
         <div className="wk-sheet-form">
-          <Input id="new-product" size="touch" label="שם המוצר" aria-required placeholder="לדוגמה: מדף אלון 28 מ״מ" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+          <Input id="new-product" size="touch" label="שם המוצר" aria-required placeholder="לדוגמה: כפפות עבודה מידה L" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
           <Input size="touch" label="הערה למנהל" optional placeholder="מידה, צבע" value={note} onChange={(e) => setNote(e.target.value)} autoComplete="off" />
           <div className="wk-sheet-actions">
             <Cta label="העברה למנהל" onClick={() => onSubmit(name.trim(), note.trim())} blocked={name.trim() ? null : { reason: "חסר שם מוצר", onTap: () => document.getElementById("new-product")?.focus() }} />
@@ -247,7 +247,7 @@ export default function DeliverPage() {
         }}
       >
         <Section id="customer" title="שם הלקוח" need="required" done={!!name}>
-          <Input size="touch" aria-label="שם הלקוח" placeholder="לדוגמה: נגריית כהן" value={customer} onChange={(e) => setCustomer(e.target.value)} autoComplete="off" />
+          <Input size="touch" aria-label="שם הלקוח" placeholder="לדוגמה: חברת כהן" value={customer} onChange={(e) => setCustomer(e.target.value)} autoComplete="off" />
           {recent.length ? (
             <div className="wk-recent-list">
               {recent.map((c) => <button key={c} type="button" className={cx("wk-recent-item", c === name && "is-selected")} onClick={() => setCustomer(c)}>{c}</button>)}
