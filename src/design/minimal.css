@@ -1,5 +1,5 @@
-/* ניהול מלאי — the "מינימל" style, in light and dark. Neutral white or near-black, hairlines,
-   one deep green for "in", "done" and the primary action, and one voice for figures.
+/* ניהול מלאי — the "מינימל" style, in light and dark. A ruled ledger on grey, or near-black with hairlines,
+   one green for "in", "done" and the primary action, and one voice for figures.
    Modelled on the Supabase dashboard, finished the way Apple finishes: one curve, one hairline,
    corners that nest. The colours, sizes and the digit face are tokens (tokens.css); this file
    changes only what a token cannot. Weights stay those of the classic language: this is read
@@ -45,7 +45,7 @@
 [data-theme^="minimal"] :is(input, textarea) { caret-color: var(--accent-text); }
 [data-theme^="minimal"] ::selection { background: var(--selection); }
 
-/* ── Hover: a real fill, since canvas and surface are one step apart here. A mouse only ── */
+/* ── Hover: a real fill, lighter than the canvas in white. A mouse only ── */
 [data-theme^="minimal"] .ag-head.is-open { background: var(--bg-hover); }
 @media (hover: hover) {
   [data-theme^="minimal"] :is(.sa-table tbody tr.is-clickable:not(.is-selected):hover td, a.sa-stat:hover, .sa-attention-item:hover, .ag-head:hover, .sa-dict-supplier:hover) { background: var(--bg-hover); }
@@ -67,7 +67,7 @@
 [data-theme^="minimal"] .wk-col.is-today .wk-bar { background: var(--chart-today); }
 [data-theme^="minimal"] .wk.is-dim .wk-col:not(.is-active) .wk-bar { opacity: 1; background: var(--border-control); }
 
-/* ── Shell: white chrome, and a rounded grey row for where you are ── */
+/* ── Shell: surface chrome, and a rounded row for where you are, grey here and ink in white ── */
 [data-theme^="minimal"] .sa-sidebar, [data-theme^="minimal"] .sa-topbar { background: var(--bg-surface); }
 [data-theme^="minimal"] .sa-search .sa-input { background: var(--bg-surface); }
 [data-theme^="minimal"] .sa-nav { padding: var(--space-2); gap: 2px; }
@@ -147,3 +147,133 @@
   @keyframes sa-edge { from { border-bottom-color: transparent; } }
   [data-theme^="minimal"] :is(.sa-topbar, .wk-root .wk-bar) { animation: sa-edge linear both; animation-timeline: scroll(root block); animation-range: 0 16px; }
 }
+
+/* ── White: a ruled ledger on a grey desk. The strength goes on the sheet, not the frame ─────
+   Ruled, never striped: a solid rule on every row, so the fill stays free for hover.
+   A column is data, so weight leads a row, not a paler grey. Colour sits on the word or the figure, never behind it.
+   Exact [data-theme="minimal"], so minimal-dark never sees this. Keep it last: it ties with the rules above. */
+
+/* The phone, the login and the 3D floor are one sheet each, with no desk: the scene and its labels read --bg-canvas.
+   Set on <html>, so body and the status bar follow. */
+[data-theme="minimal"]:has(.wk-root, .app-login, .m3d-stage) { --bg-canvas: var(--bg-surface); }
+/* Forced smoothing thins every glyph on a Mac. */
+[data-theme="minimal"] body { -webkit-font-smoothing: auto; -moz-osx-font-smoothing: auto; }
+/* The top bar's rule is there from the first pixel. */
+[data-theme="minimal"] :is(.sa-topbar, .wk-root .wk-bar) { animation: none; }
+
+/* The head: a filled band, closed by the heaviest rule on the sheet. */
+[data-theme="minimal"] .sa-table th, [data-theme="minimal"] .sa-dict-head { background: var(--bg-muted); color: var(--text-primary); font-weight: 600; border-bottom: 2px solid var(--border-inverse); }
+
+/* Rows: room around a two-line cell. A selected row stays white between two ink rules, so its figures keep their colour. */
+[data-theme="minimal"] .sa-table td:not(.sa-table-empty) { padding-block: var(--space-2); }
+[data-theme="minimal"] .sa-table tbody tr.is-selected td { background: var(--bg-surface); box-shadow: inset 0 1px 0 var(--border-inverse), inset 0 -1px 0 var(--border-inverse); }
+[data-theme="minimal"] .sa-table :is(td.is-num, td.is-mono) { font-weight: 500; }
+[data-theme="minimal"] :is(.sa-cell-primary, .sa-table .text-ink:has(+ .sa-cell-sub), .sa-attention-title, .ag-title, .sa-fault-title, .sa-dict-product-name, .sa-dict-inbox-name, .sa-dict-supplier-name, .sa-doc-title, .sa-empty-title) { font-weight: 600; }
+[data-theme="minimal"] .sa-fault-row.is-done .sa-fault-title { font-weight: 400; }
+
+/* The quantity: the largest figure in a row, between two rules, its state a word under it.
+   The reserved column also uses .sa-stock, as a direct child of its cell; it keeps its size and has no frame. */
+[data-theme="minimal"] .sa-table :is(td > span > .sa-stock, .sa-signed) { font-size: var(--t-16); line-height: var(--l-21); font-weight: 600; }
+@media (min-width: 601px) { [data-theme="minimal"] .sa-table td:has(> span > .sa-stock, .sa-signed) { border-inline: 1px solid var(--border-subtle); } }
+[data-theme="minimal"] .sa-table td > span:has(> .sa-stock) { flex-wrap: wrap; row-gap: 0; }
+[data-theme="minimal"] .sa-table td .sa-dot:has(+ .sa-sr) { display: none; }
+[data-theme="minimal"] .sa-table td .sa-sr { position: static; order: 1; flex-basis: 100%; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; font-size: var(--t-13); line-height: var(--l-18); font-weight: 600; }
+[data-theme="minimal"] .sa-table td .sa-dot-danger + .sa-sr { color: var(--danger-text); }
+[data-theme="minimal"] .sa-table td .sa-dot-warning + .sa-sr { color: var(--warning-text); }
+[data-theme="minimal"] .sa-table td .sa-dot[class*="bg-short"] + .sa-sr { color: var(--short); }
+/* From 1100px a table clips, so where stock is tight the name gives way, as on a phone: it takes what the other columns leave. */
+@media (min-width: 1100px) and (max-width: 1499px) {
+  [data-theme="minimal"] .sa-inventory-table td:first-child { width: 100%; max-width: 0; }
+  [data-theme="minimal"] .sa-inventory-table td:first-child > span { max-width: none; }
+}
+/* Movements, seven columns: the same, in closer cells, while a name still reads. Below that it scrolls, so no column is cut. */
+@media (min-width: 1240px) and (max-width: 1499px) {
+  [data-theme="minimal"] .sa-table-wrap:has(> .sa-table .sa-signed) :is(th, td) { padding-inline: var(--space-3); }
+  [data-theme="minimal"] .sa-table-wrap:has(> .sa-table .sa-signed) td:has(> span > .sa-cell-primary) { width: 100%; max-width: 0; }
+  [data-theme="minimal"] .sa-table-wrap:has(> .sa-table .sa-signed) td > span:has(> .sa-cell-primary) { max-width: none; }
+}
+@media (min-width: 1100px) and (max-width: 1239px) {
+  [data-theme="minimal"] .sa-table-wrap:has(> .sa-table .sa-signed) { overflow: auto; }
+  [data-theme="minimal"] .sa-table-wrap:has(> .sa-table .sa-signed) th { top: 0; }
+}
+[data-theme="minimal"] :is(.sa-timeline-qty, .sa-delta, .sa-stat-value, .sa-panel-sub .text-ink) { font-weight: 600; }
+[data-theme="minimal"] .sa-panel-sub .text-ink { font-size: var(--t-17); }
+[data-theme="minimal"] .sa-panel-sub:has(.sa-dot-danger) .text-ink { color: var(--danger-text); }
+[data-theme="minimal"] .sa-panel-sub:has(.sa-dot-warning) .text-ink { color: var(--warning-text); }
+[data-theme="minimal"] .sa-panel-sub:has(.sa-dot[class*="bg-short"]) .text-ink { color: var(--short); }
+
+/* State is a word in its colour, never a fill. Toned words stay after the count, so a toned count keeps its colour. */
+[data-theme="minimal"] .sa-badge-count { color: var(--text-primary); font-weight: 500; }
+[data-theme="minimal"] .sa-badge-danger { color: var(--danger-text); font-weight: 600; }
+[data-theme="minimal"] .sa-badge-warning { color: var(--warning-text); font-weight: 600; }
+[data-theme="minimal"] .sa-badge-success { color: var(--success-text); font-weight: 600; }
+[data-theme="minimal"] .sa-move.is-fault { color: var(--danger-text); font-weight: 500; }
+[data-theme="minimal"] .ag-count { font-size: var(--t-15); font-weight: 600; color: var(--warning-text); }
+[data-theme="minimal"] :is(.app-live, .wk-live, .wk-status:has(> .sa-dot-warning)) { color: var(--warning-text); font-weight: 500; }
+[data-theme="minimal"] .sa-notice:has(> .sa-dot-danger) :is(.sa-notice-title, .sa-notice-text:first-child) { color: var(--danger-text); font-weight: 600; }
+[data-theme="minimal"] .sa-notice:has(> .sa-dot-warning) :is(.sa-notice-title, .sa-notice-text:first-child) { color: var(--warning-text); font-weight: 600; }
+/* Weight 600 in both tab states, so the word never changes width and holds on the grey. */
+[data-theme="minimal"] .sa-tab .text-short { font-weight: 600; }
+
+/* The strip: the count that needs action takes the colour; the total of products never does. */
+@media (min-width: 601px) { [data-theme="minimal"] .sa-stat-value { font-size: 32px; line-height: 38px; } }
+[data-theme="minimal"] .sa-stat-foot { font-weight: 500; }
+[data-theme="minimal"] .sa-stat:has(.text-warning-text) .sa-stat-foot, [data-theme="minimal"] div.sa-stat:has(.text-warning-text) .sa-stat-value { color: var(--warning-text); }
+[data-theme="minimal"] .sa-stat:has(.text-danger-text) .sa-stat-foot, [data-theme="minimal"] div.sa-stat:has(.text-danger-text) .sa-stat-value { color: var(--danger-text); }
+
+/* Section edges outrank row rules. A product's edge outranks the lines inside it. */
+[data-theme="minimal"] :is(.sa-card-head, .sa-panel-head, .sa-menu-search, .sa-dict-row) { border-bottom-color: var(--border-base); }
+[data-theme="minimal"] :is(.sa-card-foot, .sa-table-caption, .sa-modal-foot, .ag-panel, .ag-group + .ag-group, .ag-urgent + .ag-group) { border-top-color: var(--border-base); }
+[data-theme="minimal"] .sa-dict-alias + .sa-dict-alias { border-top: 1px solid var(--border-subtle); }
+[data-theme="minimal"] .sa-dict-add { color: var(--text-primary); text-decoration: underline; text-decoration-color: var(--border-control); text-underline-offset: 3px; }
+
+/* Chrome: white with a solid rule against the desk, and ink for where you are, at the weight of its neighbours.
+   Below this width the row is a tab on a rule, so ink stays out of it. */
+[data-theme="minimal"] :is(.sa-sidebar, .sa-topbar) { border-color: var(--border-strong); }
+@media (min-width: 900px) {
+  [data-theme="minimal"] .sa-nav-item.is-active { background: var(--bg-inverse); color: var(--text-inverse); }
+  [data-theme="minimal"] .sa-nav-item.is-active .sa-badge-count { color: inherit; }
+  [data-theme="minimal"] .sa-brand { border-bottom: 1px solid var(--border-base); }
+  [data-theme="minimal"] .sa-nav-foot { border-top: 1px solid var(--border-base); }
+}
+@media (max-width: 899px) { [data-theme="minimal"] .sa-shell > .sa-sidebar > .sa-nav > .sa-nav-item { border-bottom-width: 3px; } }
+
+/* On the desk: tabs on a rule, and a set filter framed in ink, because it hides rows. */
+[data-theme="minimal"] .sa-tab { border-bottom-width: 3px; }
+[data-theme="minimal"] .sa-toolbar-tabs .sa-tabs { box-shadow: inset 0 -1px 0 var(--border-strong); }
+[data-theme="minimal"] .sa-search .sa-input { border-color: var(--border-strong); }
+[data-theme="minimal"] :is(.sa-toolbar-tools, .app-filters) .sa-select-trigger:not(.is-open):has(.sa-select-value:not(.is-placeholder)) { border-color: var(--border-inverse); box-shadow: 0 0 0 1px var(--border-inverse); }
+[data-theme="minimal"] .app-range input::-webkit-calendar-picker-indicator { opacity: 1; }
+
+/* States that used to live in one grey step. */
+@media (hover: hover) {
+  [data-theme="minimal"] .sa-tab:not(.is-active):hover { border-bottom-color: var(--border-strong); }
+  [data-theme="minimal"] .sa-appearance-opt:not(.is-active):hover { background: var(--bg-hover); }
+  [data-theme="minimal"] :is(.sa-table th button, .sa-settings-link, .sa-appearance-link):hover { text-decoration: underline; text-underline-offset: 3px; }
+  [data-theme="minimal"] .sa-search .sa-input:hover:not(:disabled):not(:focus) { border-color: var(--border-control); }
+  [data-theme="minimal"] .sa-btn-danger:hover:not(:disabled) { border-color: var(--border-control); background: var(--bg-hover); }
+  [data-theme="minimal"] .sa-dict-add:hover { text-decoration-color: currentColor; }
+  [data-theme="minimal"] :is(.sa-toolbar-tools, .app-filters) .sa-select-trigger:not(.is-open):has(.sa-select-value:not(.is-placeholder)):hover:not(:disabled) { border-color: var(--border-control); box-shadow: 0 0 0 1px var(--border-control); }
+}
+/* These two base hovers paint the canvas and stick after a tap. */
+@media (hover: none) { [data-theme="minimal"] :is(.ag-head:not(.is-open), .sa-dict-supplier):hover { background: transparent; } }
+[data-theme="minimal"] :is(.wk-textlink, .wk-line-remove):active { opacity: 0.6; }
+[data-theme="minimal"] :is(.wk-row.is-selected, .wk-choices > .wk-row.is-selected) { position: relative; z-index: 1; border-color: var(--border-inverse); box-shadow: 0 0 0 1px var(--border-inverse); }
+
+/* The quiet tier: what is empty, unset, locked or still to come. */
+[data-theme="minimal"] .sa-input::placeholder, [data-theme="minimal"] .sa-menu-search input::placeholder, [data-theme="minimal"] :is(.sa-select-value.is-placeholder, .sa-dict-none, .sa-table .text-ink-3, .wk-photo.is-locked) { color: var(--text-quiet); }
+/* A separate rule: at (0,2,0) their active and done states still win. */
+[data-theme="minimal"] :is(.sa-step-label, .wk-progress-label, .wk-scan-stage-row) { color: var(--text-quiet); }
+
+/* Disabled is grey, never a pale green; a busy primary stays green. */
+[data-theme="minimal"] .sa-btn-primary:disabled { opacity: 1; }
+[data-theme="minimal"] .sa-btn-primary:disabled:not([aria-busy="true"]):not(.is-busy) { background: var(--bg-hover); border-color: var(--border-subtle); color: var(--text-disabled); }
+[data-theme="minimal"] :is(.sa-input, .sa-select-trigger):disabled { background: var(--bg-hover); }
+
+/* A real gap: the ring's white layer would show as a halo on the grey. */
+[data-theme="minimal"] :is(.sa-btn, .sa-tab, .sa-select-trigger, .sa-table th button):focus-visible { box-shadow: none; outline: 2px solid var(--focus); outline-offset: 2px; }
+[data-theme="minimal"] .app-skeletonTable { background: var(--bg-surface); border: 1px solid var(--border-base); }
+
+/* The week: a wider bar that still leaves a gap in the four-tile layout; a dimmed bar stays lighter than either green. */
+[data-theme="minimal"] .wk-col .wk-bar { width: min(22px, 70%); }
+[data-theme="minimal"] .wk.is-dim .wk-col:not(.is-active) .wk-bar { background: var(--border-subtle); }

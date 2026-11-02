@@ -1,6 +1,6 @@
 /* ניהול מלאי — design tokens. Two styles, each in light and dark.
    classic: graphite ink on warm paper, thin rules, earth pigments for state, and nothing else.
-   minimal: neutral white or near-black, hairlines, one green, numbers in Source Code Pro (see minimal.css).
+   minimal: a ruled ledger on grey, or near-black with hairlines, one green, numbers in Source Code Pro (see minimal.css).
    Copied byte for byte to worker/src/design/tokens.css. */
 :root, [data-theme="light"] {
   color-scheme: light;
@@ -133,51 +133,55 @@
   --sidebar: 232px;
 }
 
-/* ── "מינימל": white on near-white, hairlines, one green ──────────────────────
-   Modelled on the Supabase dashboard: #fdfdfd canvas, white cards, #e9e9e9 rules, near-black type,
-   one deep green for what is in, done or pressed, brand green (#3ecf8e) on the chart, every number in Source Code Pro.
+/* ── "מינימל", white: a ruled ledger on a grey desk ──────────────────────────
+   Grown from the Supabase dashboard, one step stronger everywhere, because it is read at arm's length:
+   white sheets on a grey canvas, solid rules, near-black type, one vivid green for what is in, done or pressed,
+   every number in Source Code Pro. The white style's rules are at the end of minimal.css.
+   Surfaces run surface > hover > canvas > muted, and the lines run darker from there. Keep that order:
+   hovering and pressed states depend on it. --text-quiet is only for what is empty, unset or still to come.
    Placed after :root so the radii and the mono family here win. */
 [data-theme="minimal"] {
   color-scheme: light;
-  --bg-canvas: #fdfdfd;
+  --bg-canvas: #e6e6e6;
   --bg-surface: #ffffff;
-  --bg-muted: #f0f0f0;
-  --bg-hover: #f8f8f8;
+  --bg-muted: #dcdcdc;
+  --bg-hover: #f0f0f0;
   --bg-thumb: #ffffff;
   --bg-inverse: #171717;
   --bg-inverse-hover: #2e2e2e;
-  --bg-scrim: rgba(0, 0, 0, 0.4);
+  --bg-scrim: rgba(0, 0, 0, 0.45);
   --text-primary: #0a0a0a;
-  --text-secondary: #404040;
-  --text-tertiary: #5e5e5e;
-  --text-disabled: #a3a3a3;
-  --text-inverse: #fdfdfd;
-  --border-subtle: #efefef;
-  --border-base: #e9e9e9;
-  --border-strong: #d9d9d9;
-  --border-control: #b3b3b3;
+  --text-secondary: #262626;
+  --text-tertiary: #3d3d3d;
+  --text-quiet: #666666;
+  --text-disabled: #767676;
+  --text-inverse: #ffffff;
+  --border-subtle: #bdbdbd;
+  --border-base: #a0a0a0;
+  --border-strong: #8a8a8a;
+  --border-control: #5c5c5c;
   --border-inverse: #171717;
-  --accent: #0e7e4e;
-  --accent-hover: #007243;
-  --on-accent: #fafcfb;
-  --accent-text: #0e7e4e;
-  --success: #0e7e4e;
+  --accent: #007e3e;
+  --accent-hover: #00672f;
+  --on-accent: #ffffff;
+  --accent-text: #007e3e;
+  --success: #007e3e;
   --on-success: #ffffff;
-  --success-text: #0e7e4e;
-  --qty-in: #0e7e4e;
-  --chart-bar: #3ecf8e;
-  --chart-today: #0e7e4e;
+  --success-text: #007e3e;
+  --qty-in: #007e3e;
+  --chart-bar: #00a85a;
+  --chart-today: #00672f;
   --selection: rgba(14, 126, 78, 0.16);
-  --warning: #a95a00;
-  --on-warning: #fffaf5;
-  --warning-text: #995000;
-  --danger: #ab413e;
-  --on-danger: #fff9f8;
-  --danger-text: #ab413e;
+  --warning: #a85400;
+  --on-warning: #ffffff;
+  --warning-text: #a85400;
+  --danger: #b3201c;
+  --on-danger: #ffffff;
+  --danger-text: #b3201c;
   --focus: var(--accent);
   --shadow-sm: none;
-  --shadow-md: 0 0 0 0.5px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.04), 0 12px 32px -8px rgba(0, 0, 0, 0.14);
-  --shadow-modal: 0 0 0 0.5px rgba(0, 0, 0, 0.08), 0 8px 16px rgba(0, 0, 0, 0.06), 0 32px 64px -16px rgba(0, 0, 0, 0.24);
+  --shadow-md: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.08), 0 12px 32px -8px rgba(0, 0, 0, 0.28);
+  --shadow-modal: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 8px 16px rgba(0, 0, 0, 0.1), 0 32px 64px -16px rgba(0, 0, 0, 0.38);
   --focus-ring: 0 0 0 2px var(--bg-surface), 0 0 0 3.5px var(--focus);
   --focus-ring-danger: 0 0 0 2px var(--bg-surface), 0 0 0 3.5px var(--danger);
   --radius-sm: 4px;
@@ -240,10 +244,10 @@
   --font-mono: 'Source Code Pro', var(--font-sans);
 }
 
-/* One device pixel on sharp screens, as Apple draws its separators. A finer line needs a deeper grey to read the same.
+/* In the dark, one device pixel on sharp screens, as Apple draws its separators. A finer line needs a deeper grey to read
+   the same. The white style stays a full pixel: half a pixel is what made it pale.
    The radii grow with continuous corners, which look smaller than round ones at the same value. */
 @media (min-resolution: 2dppx) {
-  [data-theme="minimal"] { --hair: 0.5px; --border-subtle: #e6e6e6; --border-base: #d9d9d9; --border-strong: #c6c6c6; }
   [data-theme="minimal-dark"] { --hair: 0.5px; --border-subtle: #303231; --border-base: #3a3c3b; --border-strong: #484a49; }
 }
 @supports (corner-shape: squircle) {
