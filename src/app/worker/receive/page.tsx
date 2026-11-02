@@ -62,7 +62,7 @@ function AddSupplier({ onSubmit, onClose }: { onSubmit: (name: string) => Promis
       <div className="wk-sheet-inner">
         <StepHead title="הוספת ספק" onBack={onClose} />
         <div className="wk-sheet-form">
-          <Input id="new-supplier" size="touch" label="שם הספק" aria-required placeholder="לדוגמה: אספקת המרכז" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+          <Input id="new-supplier" size="touch" label="שם הספק" aria-required placeholder="לדוגמה: מתכות המרכז" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
           {failed ? <Hint tone="attention" title="לא נשמר. לבדוק אינטרנט וללחוץ שוב." /> : null}
           <div className="wk-sheet-actions">
             <Cta label="הוספת ספק" onClick={save} busy={busy ? "מוסיף את הספק" : null} blocked={name.trim() ? null : { reason: "חסר שם ספק", onTap: () => document.getElementById("new-supplier")?.focus() }} />
@@ -355,7 +355,7 @@ export default function ReceivePage() {
                 <Input
                   size="touch"
                   label={l.scanned ? "נקרא מהתעודה" : "שם המוצר בתעודה"}
-                  placeholder="לדוגמה: קרטון אריזה 40×30"
+                  placeholder="לדוגמה: פרופיל אלומיניום 40×40"
                   value={l.externalName}
                   autoComplete="off"
                   onChange={(e) => patch(l.id, { externalName: e.target.value, sku: null, suggestedId: undefined, productId: null, unknown: false })}
